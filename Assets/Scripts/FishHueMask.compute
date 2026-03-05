@@ -1,0 +1,139 @@
+// FishHueMask.compute
+// Performs HSV hue-range masking and computes blob moments (centroid + bounding box)
+// for yellow fish tracking from a video RenderTexture.
+
+#pragma kernel HueMask
+#pragma kernel ReduceMoments
+
+// ── Inputs ────────────────────────────────────────────────────────────────────
+Texture2D<float4> InputTexture;
+RWTexture2D<float4> MaskTexture;   // debug output: white where fish, black elsewhere
+
+// ── HSV thresholds (set from C#) ──────────────────────────────────────────────
+float HueMin;       // 0–1 range (map from 0–360 by dividing by 360)
+float HueMax;
+float SatMin;
+float SatMax;
+float ValMin;
+float ValMax;
+
+// ── Moment reduction buffers ──────────────────────────────────────────────────
+// Each thread group writes one partial result; C# sums the final total.
+// Layout per element: [pixelCount, sumX, sumY, minX, minY, maxX, maxY]
+RWStructuredBuffer<float> PartialMoments;
+
+uint TextureWidth;
+uint TextureHeight;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+float3 RGBtoHSV(float3 c)
+{
+    float4 K = float4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+    float4 p = lerp(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
+    float4 q = lerp(float4(p.xyw, c.r),  float4(c.r, p.yzx), step(p.x, c.r));
+    float d  = q.x - min(q.w, q.y);
+    float e  = 1e-10;
+    return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+// Shared memory for group-level reduction
+groupshared float gs_count[64];
+groupshared float gs_sumX[64];
+groupshared float gs_sumY[64];
+groupshared float gs_minX[64];
+groupshared float gs_minY[64];
+groupshared float gs_maxX[64];
+groupshared float gs_maxY[64];
+
+// ── Kernel 0: HueMask ─────────────────────────────────────────────────────────
+// Writes mask texture; also writes 1-bit mask into a flat uint buffer
+// (reused by ReduceMoments kernel via MaskTexture read).
+[numthreads(8, 8, 1)]
+void HueMask(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= TextureWidth || id.y >= TextureHeight) return;
+
+    float4 col = InputTexture[id.xy];
+    float3 hsv = RGBtoHSV(col.rgb);
+
+    // Hue wrap-around support (e.g. red straddles 0/1 boundary)
+    float h = hsv.x;
+    bool hueInRange;
+    if (HueMin <= HueMax)
+        hueInRange = h >= HueMin && h <= HueMax;
+    else
+        hueInRange = h >= HueMin || h <= HueMax;
+
+    bool inMask = hueInRange
+               && hsv.y >= SatMin && hsv.y <= SatMax
+               && hsv.z >= ValMin && hsv.z <= ValMax;
+
+    MaskTexture[id.xy] = inMask ? float4(1,1,1,1) : float4(0,0,0,1);
+}
+
+// ── Kernel 1: ReduceMoments ───────────────────────────────────────────────────
+// One thread per pixel; group-reduces into PartialMoments.
+// Dispatch as (ceil(W/8), ceil(H/8), 1) — same as HueMask.
+// PartialMoments must be sized: numGroupsX * numGroupsY * 7 floats.
+[numthreads(8, 8, 1)]
+void ReduceMoments(uint3 id : SV_DispatchThreadID,
+                   uint3 groupId : SV_GroupID,
+                   uint  groupIndex : SV_GroupIndex)
+{
+    // Init shared memory
+    gs_count[groupIndex] = 0;
+    gs_sumX[groupIndex]  = 0;
+    gs_sumY[groupIndex]  = 0;
+    gs_minX[groupIndex]  = (float)TextureWidth;
+    gs_minY[groupIndex]  = (float)TextureHeight;
+    gs_maxX[groupIndex]  = 0;
+    gs_maxY[groupIndex]  = 0;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (id.x < TextureWidth && id.y < TextureHeight)
+    {
+        float m = MaskTexture[id.xy].r; // 1 if fish pixel, 0 otherwise
+        if (m > 0.5)
+        {
+            gs_count[groupIndex] = 1;
+            gs_sumX[groupIndex]  = (float)id.x;
+            gs_sumY[groupIndex]  = (float)id.y;
+            gs_minX[groupIndex]  = (float)id.x;
+            gs_minY[groupIndex]  = (float)id.y;
+            gs_maxX[groupIndex]  = (float)id.x;
+            gs_maxY[groupIndex]  = (float)id.y;
+        }
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    // Simple sequential reduction within group (64 threads max)
+    if (groupIndex == 0)
+    {
+        float cnt = 0, sx = 0, sy = 0;
+        float mnX = (float)TextureWidth,  mnY = (float)TextureHeight;
+        float mxX = 0, mxY = 0;
+
+        for (uint i = 0; i < 64; i++)
+        {
+            cnt += gs_count[i];
+            sx  += gs_sumX[i];
+            sy  += gs_sumY[i];
+            mnX  = min(mnX, gs_minX[i]);
+            mnY  = min(mnY, gs_minY[i]);
+            mxX  = max(mxX, gs_maxX[i]);
+            mxY  = max(mxY, gs_maxY[i]);
+        }
+
+        uint numGroupsX = (TextureWidth  + 7) / 8;
+        uint baseIdx    = (groupId.y * numGroupsX + groupId.x) * 7;
+        PartialMoments[baseIdx + 0] = cnt;
+        PartialMoments[baseIdx + 1] = sx;
+        PartialMoments[baseIdx + 2] = sy;
+        PartialMoments[baseIdx + 3] = mnX;
+        PartialMoments[baseIdx + 4] = mnY;
+        PartialMoments[baseIdx + 5] = mxX;
+        PartialMoments[baseIdx + 6] = mxY;
+    }
+}
