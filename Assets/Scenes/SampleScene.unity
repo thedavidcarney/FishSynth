@@ -464,6 +464,7 @@ GameObject:
   - component: {fileID: 963194228}
   - component: {fileID: 963194227}
   - component: {fileID: 963194226}
+  - component: {fileID: 963194229}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -545,6 +546,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &963194229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 963194225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16c7e90e7bbdfc742903803b9bcf8951, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1031224871
 GameObject:
   m_ObjectHideFlags: 0
@@ -556,6 +569,7 @@ GameObject:
   - component: {fileID: 1031224872}
   - component: {fileID: 1031224874}
   - component: {fileID: 1031224873}
+  - component: {fileID: 1031224875}
   m_Layer: 0
   m_Name: FishTracker
   m_TagString: Untagged
@@ -591,11 +605,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tracker: {fileID: 1031224874}
-  midiPortName: 
+  midiPortName: loopMIDI Port Unity
   posX:
     label: Pos X
     enabled: 1
-    ccNumber: 1
+    ccNumber: 20
     midiChannel: 1
     inputMin: 0
     inputMax: 1
@@ -605,7 +619,7 @@ MonoBehaviour:
   posY:
     label: Pos Y
     enabled: 1
-    ccNumber: 2
+    ccNumber: 21
     midiChannel: 1
     inputMin: 0
     inputMax: 1
@@ -615,7 +629,7 @@ MonoBehaviour:
   velocityMag:
     label: Speed
     enabled: 1
-    ccNumber: 3
+    ccNumber: 22
     midiChannel: 1
     inputMin: 0
     inputMax: 3
@@ -625,7 +639,7 @@ MonoBehaviour:
   velX:
     label: Vel X
     enabled: 1
-    ccNumber: 4
+    ccNumber: 23
     midiChannel: 1
     inputMin: -3
     inputMax: 3
@@ -635,7 +649,7 @@ MonoBehaviour:
   velY:
     label: Vel Y
     enabled: 1
-    ccNumber: 5
+    ccNumber: 24
     midiChannel: 1
     inputMin: -3
     inputMax: 3
@@ -645,13 +659,14 @@ MonoBehaviour:
   size:
     label: Size
     enabled: 1
-    ccNumber: 6
+    ccNumber: 25
     midiChannel: 1
     inputMin: 0
     inputMax: 0.3
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+  debugLogging: 1
 --- !u!114 &1031224874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -681,6 +696,24 @@ MonoBehaviour:
   velocitySmoothing: 0.2
   deadReckonDuration: 0.5
   maxVelocity: 5
+--- !u!114 &1031224875
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1031224871}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f1638790d9beea4bb83d21f49e7d240, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputPortName: loopMIDI Port Unity
+  logAllMessages: 1
+  filterChannel: 1
+  lastCcNumber: 0
+  lastCcValue: 0
+  lastChannel: 0
 --- !u!1 &1312738067
 GameObject:
   m_ObjectHideFlags: 0

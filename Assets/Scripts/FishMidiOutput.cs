@@ -24,12 +24,16 @@ public class FishMidiOutput : MonoBehaviour
     public string midiPortName = "";
 
     [Header("Channel Mappings")]
-    public MidiChannelMapping posX            = new MidiChannelMapping { label = "Pos X",         ccNumber = 1,  midiChannel = 1,  inputMin = 0f,   inputMax = 1f   };
-    public MidiChannelMapping posY            = new MidiChannelMapping { label = "Pos Y",         ccNumber = 2,  midiChannel = 1,  inputMin = 0f,   inputMax = 1f   };
-    public MidiChannelMapping velocityMag     = new MidiChannelMapping { label = "Speed",         ccNumber = 3,  midiChannel = 1,  inputMin = 0f,   inputMax = 3f   };
-    public MidiChannelMapping velX            = new MidiChannelMapping { label = "Vel X",         ccNumber = 4,  midiChannel = 1,  inputMin = -3f,  inputMax = 3f   };
-    public MidiChannelMapping velY            = new MidiChannelMapping { label = "Vel Y",         ccNumber = 5,  midiChannel = 1,  inputMin = -3f,  inputMax = 3f   };
-    public MidiChannelMapping size            = new MidiChannelMapping { label = "Size",          ccNumber = 6,  midiChannel = 1,  inputMin = 0f,   inputMax = 0.3f };
+    public MidiChannelMapping posX        = new MidiChannelMapping { label = "Pos X",  ccNumber = 20, midiChannel = 1, inputMin = 0f,   inputMax = 1f   };
+    public MidiChannelMapping posY        = new MidiChannelMapping { label = "Pos Y",  ccNumber = 21, midiChannel = 1, inputMin = 0f,   inputMax = 1f   };
+    public MidiChannelMapping velocityMag = new MidiChannelMapping { label = "Speed",  ccNumber = 22, midiChannel = 1, inputMin = 0f,   inputMax = 3f   };
+    public MidiChannelMapping velX        = new MidiChannelMapping { label = "Vel X",  ccNumber = 23, midiChannel = 1, inputMin = -3f,  inputMax = 3f   };
+    public MidiChannelMapping velY        = new MidiChannelMapping { label = "Vel Y",  ccNumber = 24, midiChannel = 1, inputMin = -3f,  inputMax = 3f   };
+    public MidiChannelMapping size        = new MidiChannelMapping { label = "Size",   ccNumber = 25, midiChannel = 1, inputMin = 0f,   inputMax = 0.3f };
+
+    [Header("Debug")]
+    [Tooltip("Log every attempted send to console.")]
+    public bool debugLogging = true;
 
     // ── Internal ──────────────────────────────────────────────────────────────
 
@@ -81,32 +85,42 @@ public class FishMidiOutput : MonoBehaviour
 
         FishTrackData d = tracker.Data;
 
-        SendMapping(posX,        d.posX,             d.detected);
-        SendMapping(posY,        d.posY,             d.detected);
+        SendMapping(posX,        d.posX,              d.detected);
+        SendMapping(posY,        d.posY,              d.detected);
         SendMapping(velocityMag, d.velocityMagnitude, d.detected);
-        SendMapping(velX,        d.velX,             d.detected);
-        SendMapping(velY,        d.velY,             d.detected);
-        SendMapping(size,        d.size,             d.detected);
+        SendMapping(velX,        d.velX,              d.detected);
+        SendMapping(velY,        d.velY,              d.detected);
+        SendMapping(size,        d.size,              d.detected);
     }
 
     private void SendMapping(MidiChannelMapping mapping, float rawValue, bool detected)
     {
-        if (!mapping.enabled) return;
-        if (!detected && mapping.holdOnLostDetection) return;
+        if (!mapping.enabled)
+        {
+            if (debugLogging) Debug.Log($"[FishMidiOutput] CC{mapping.ccNumber} skipped: disabled");
+            return;
+        }
+        if (!detected && mapping.holdOnLostDetection)
+        {
+            if (debugLogging) Debug.Log($"[FishMidiOutput] CC{mapping.ccNumber} skipped: not detected + holdOnLostDetection");
+            return;
+        }
 
-        // Remap input range → 0–127
         float t   = Mathf.InverseLerp(mapping.inputMin, mapping.inputMax, rawValue);
         t         = Mathf.Clamp01(t);
         int ccVal = Mathf.RoundToInt(Mathf.Lerp(mapping.outputMin, mapping.outputMax, t));
         ccVal     = Mathf.Clamp(ccVal, 0, 127);
 
-        // Suppress send if value unchanged (reduces MIDI noise)
         int key = mapping.midiChannel * 1000 + mapping.ccNumber;
-        if (_lastSentCC.TryGetValue(key, out int last) && last == ccVal) return;
+        if (_lastSentCC.TryGetValue(key, out int last) && last == ccVal)
+        {
+            if (debugLogging) Debug.Log($"[FishMidiOutput] CC{mapping.ccNumber} suppressed: value unchanged ({ccVal})");
+            return;
+        }
         _lastSentCC[key] = ccVal;
 
-        // RtMidi raw message: status byte = 0xB0 | (channel-1), cc, value
         byte status = (byte)(0xB0 | ((mapping.midiChannel - 1) & 0x0F));
+        if (debugLogging) Debug.Log($"[FishMidiOutput] SENDING CC{mapping.ccNumber} = {ccVal} (raw={rawValue:F3}) on ch{mapping.midiChannel}");
         _midiOut.SendMessage(new ReadOnlySpan<byte>(new byte[] { status, (byte)mapping.ccNumber, (byte)ccVal }));
     }
 

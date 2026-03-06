@@ -1,0 +1,16 @@
+{
+    "hueMin": 0.10000000149011612,
+    "hueMax": 0.20000000298023225,
+    "satMin": 0.5,
+    "satMax": 1.0,
+    "valMin": 0.0,
+    "valMax": 1.0,
+    "erode1Radius": 4,
+    "dilateRadius": 17,
+    "erode2Radius": 1,
+    "minBlobPixels": 80,
+    "positionSmoothing": 0.5,
+    "velocitySmoothing": 0.20000000298023225,
+    "deadReckonDuration": 0.5,
+    "maxVelocity": 5.0
+}
