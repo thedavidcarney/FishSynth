@@ -1,14 +1,14 @@
 using UnityEngine;
 using UnityEngine.Video;
+using UnityEngine.UI;
 
 /// <summary>
 /// Plays a video file into a RenderTexture for development/testing.
-/// Assign the outputTexture to YellowFishTracker.videoTexture.
+/// Assign the YellowFishTracker and optional debug RawImage —
+/// both are wired up automatically at runtime when the video prepares.
 ///
 /// Place your video file in Assets/StreamingAssets/ and enter the filename
 /// in videoFileName, or set a full absolute path in absolutePath.
-///
-/// The RenderTexture is auto-created to match the video resolution on load.
 /// </summary>
 [RequireComponent(typeof(VideoPlayer))]
 public class VideoFileInput : MonoBehaviour
@@ -16,9 +16,9 @@ public class VideoFileInput : MonoBehaviour
     // ── Inspector ─────────────────────────────────────────────────────────────
 
     [Header("Video Source")]
-    [Tooltip("Filename inside Assets/StreamingAssets/  (e.g. 'fishtank.mp4'). " +
+    [Tooltip("Filename inside Assets/StreamingAssets/ (e.g. 'fishtank.mov'). " +
              "Ignored if absolutePath is set.")]
-    public string videoFileName = "fishtank.mp4";
+    public string videoFileName = "fishtank.mov";
 
     [Tooltip("Full absolute path override. Leave empty to use StreamingAssets.")]
     public string absolutePath = "";
@@ -30,17 +30,22 @@ public class VideoFileInput : MonoBehaviour
     public float playbackSpeed = 1f;
 
     [Header("Output")]
-    [Tooltip("The RenderTexture the video is rendered into. " +
-             "Assign this to YellowFishTracker.videoTexture. " +
-             "Created automatically at video resolution if left null.")]
-    public RenderTexture outputTexture;
+    [Tooltip("Assign the YellowFishTracker here — videoTexture will be set automatically at runtime.")]
+    public YellowFishTracker tracker;
 
-    [Tooltip("If true, also display the video on a RawImage or Renderer on this GameObject.")]
+    [Tooltip("Optional RawImage to display the hue mask for HSV tuning. Assigned automatically at runtime.")]
+    public RawImage debugMaskImage;
+
+    [Tooltip("Optional RawImage to display the raw video feed. Assigned automatically at runtime.")]
+    public RawImage videoImage;
+
+    [Tooltip("If true, also display the video on a Renderer on this GameObject.")]
     public bool displayOnRenderer = false;
 
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private VideoPlayer _vp;
+    private RenderTexture _outputTexture;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -48,7 +53,7 @@ public class VideoFileInput : MonoBehaviour
     {
         _vp = GetComponent<VideoPlayer>();
         _vp.renderMode        = VideoRenderMode.RenderTexture;
-        _vp.audioOutputMode   = VideoAudioOutputMode.None; // we don't need audio
+        _vp.audioOutputMode   = VideoAudioOutputMode.None;
         _vp.isLooping         = loop;
         _vp.playbackSpeed     = playbackSpeed;
         _vp.prepareCompleted += OnPrepareCompleted;
@@ -70,26 +75,45 @@ public class VideoFileInput : MonoBehaviour
         uint w = vp.width;
         uint h = vp.height;
 
-        if (outputTexture == null || outputTexture.width != (int)w || outputTexture.height != (int)h)
+        if (_outputTexture == null || _outputTexture.width != (int)w || _outputTexture.height != (int)h)
         {
-            if (outputTexture != null) outputTexture.Release();
+            if (_outputTexture != null) _outputTexture.Release();
 
-            outputTexture = new RenderTexture((int)w, (int)h, 0, RenderTextureFormat.ARGB32)
+            _outputTexture = new RenderTexture((int)w, (int)h, 0, RenderTextureFormat.ARGB32)
             {
                 enableRandomWrite = true,
                 name              = "FishVideoRT"
             };
-            outputTexture.Create();
+            _outputTexture.Create();
 
-            Debug.Log($"[VideoFileInput] Created RenderTexture {w}x{h} for video.");
+            Debug.Log($"[VideoFileInput] Created RenderTexture {w}x{h}.");
         }
 
-        vp.targetTexture = outputTexture;
+        vp.targetTexture = _outputTexture;
+
+        if (tracker != null)
+        {
+            // Push video RT to tracker and force compute init so debugMaskTexture exists
+            tracker.videoTexture = _outputTexture;
+            tracker.InitCompute();
+
+            // Now the mask RT exists — wire up the debug RawImage
+            if (debugMaskImage != null)
+                debugMaskImage.texture = tracker.debugMaskTexture;
+
+        }
+        else
+        {
+            Debug.LogWarning("[VideoFileInput] No tracker assigned — set videoTexture manually.");
+        }
+
+        if (videoImage != null)
+            videoImage.texture = _outputTexture;
 
         if (displayOnRenderer)
         {
             var rend = GetComponent<Renderer>();
-            if (rend) rend.material.mainTexture = outputTexture;
+            if (rend) rend.material.mainTexture = _outputTexture;
         }
 
         if (playOnStart) vp.Play();
@@ -97,7 +121,7 @@ public class VideoFileInput : MonoBehaviour
 
     private void Update()
     {
-        _vp.playbackSpeed = playbackSpeed; // allow runtime tweaking
+        _vp.playbackSpeed = playbackSpeed;
     }
 
     // ── Public controls ───────────────────────────────────────────────────────
@@ -116,5 +140,6 @@ public class VideoFileInput : MonoBehaviour
     private void OnDestroy()
     {
         if (_vp != null) _vp.prepareCompleted -= OnPrepareCompleted;
+        if (_outputTexture != null) _outputTexture.Release();
     }
 }

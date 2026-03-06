@@ -1,13 +1,15 @@
 using UnityEngine;
-using UnityEngine.Video;
 
 /// <summary>
-/// Tracks the yellow fish using a GPU hue-mask compute shader.
-/// Outputs normalized (0–1) position, velocity components, and blob size
-/// each frame via the FishData property.
+/// Tracks the yellow fish using a GPU hue-mask + morphology compute shader.
+/// Pipeline per frame:
+///   HueMask → Erode1 → Dilate → Erode2 → ReduceMoments
 ///
-/// Attach to any GameObject. Assign ComputeShader, a RenderTexture source,
-/// and tune HSV thresholds in the Inspector.
+/// Outputs normalized (0–1) position, velocity, bbox, and size each frame
+/// via the Data property. Dead-reckoning holds position when fish is occluded.
+///
+/// HSV and morphology values are saved to PlayerPrefs automatically when changed
+/// in Play mode, and restored on Start.
 /// </summary>
 public class YellowFishTracker : MonoBehaviour
 {
@@ -17,59 +19,107 @@ public class YellowFishTracker : MonoBehaviour
     [Tooltip("Assign FishHueMask.compute here.")]
     public ComputeShader fishComputeShader;
 
-    [Tooltip("RenderTexture receiving the video feed. Assign from VideoFileInput or live camera.")]
+    [Tooltip("RenderTexture receiving the video feed. Set automatically by VideoFileInput.")]
     public RenderTexture videoTexture;
 
-    [Tooltip("Optional: displays the raw hue mask for tuning. Can be assigned to a RawImage UI element.")]
+    [Tooltip("The processed mask RT after morphology. Wired to debug RawImage by VideoFileInput.")]
     public RenderTexture debugMaskTexture;
 
-    [Header("HSV Thresholds  (0–1 range; Hue 0=red, 0.167=yellow, 0.333=green, 0.667=blue)")]
-    [Range(0f, 1f)] public float hueMin = 0.10f;   // ~36°
-    [Range(0f, 1f)] public float hueMax = 0.20f;   // ~72°
+    [Header("HSV Thresholds  (0–1; Hue: 0=red  0.167=yellow  0.333=green  0.667=blue)")]
+    [Range(0f, 1f)] public float hueMin = 0.10f;
+    [Range(0f, 1f)] public float hueMax = 0.20f;
     [Range(0f, 1f)] public float satMin = 0.50f;
     [Range(0f, 1f)] public float satMax = 1.00f;
     [Range(0f, 1f)] public float valMin = 0.40f;
     [Range(0f, 1f)] public float valMax = 1.00f;
 
+    [Header("Morphology")]
+    [Tooltip("Radius for first Erode pass. Removes isolated noise specs.")]
+    [Range(1, 10)] public int erode1Radius = 2;
+
+    [Tooltip("Radius for Dilate pass. Bridges gaps between disconnected fish blobs.")]
+    [Range(1, 20)] public int dilateRadius = 6;
+
+    [Tooltip("Radius for second Erode pass. Brings blob back to roughly fish size.")]
+    [Range(1, 10)] public int erode2Radius = 4;
+
     [Header("Tracking")]
-    [Tooltip("Minimum pixel count to consider a valid detection. Filters out noise.")]
+    [Tooltip("Minimum pixel count in final mask to consider a valid detection.")]
     public int minBlobPixels = 80;
 
-    [Tooltip("Smoothing for velocity (EMA alpha, 0=frozen, 1=raw).")]
-    [Range(0f, 1f)] public float velocitySmoothing = 0.2f;
-
-    [Tooltip("Smoothing for position (EMA alpha).")]
+    [Tooltip("EMA alpha for position smoothing (0=frozen, 1=raw).")]
     [Range(0f, 1f)] public float positionSmoothing = 0.5f;
 
-    // ── Public output data ────────────────────────────────────────────────────
+    [Tooltip("EMA alpha for velocity smoothing.")]
+    [Range(0f, 1f)] public float velocitySmoothing = 0.2f;
 
-    /// <summary>All tracker outputs, normalized 0–1. Read by FishMidiOutput.</summary>
+    [Header("Dead Reckoning (occlusion handling)")]
+    [Tooltip("How long (seconds) to coast on last velocity before freezing position.")]
+    public float deadReckonDuration = 0.5f;
+
+    [Tooltip("Max speed clamp in normalized units/sec to prevent runaway on reacquisition.")]
+    public float maxVelocity = 5f;
+
+    // ── Public output ─────────────────────────────────────────────────────────
+
     public FishTrackData Data { get; private set; }
 
     // ── Internal ──────────────────────────────────────────────────────────────
 
-    private int _kernelMask;
-    private int _kernelMoments;
-    private ComputeBuffer _partialBuffer;
-    private float[] _partialData;
-    private int _numGroupsX, _numGroupsY, _totalGroups;
+    private int _kMask, _kErode, _kDilate, _kMoments;
 
-    private RenderTexture _maskRT;
+    private RenderTexture _maskA;
+    private RenderTexture _maskB;
+    private ComputeBuffer _partialBuffer;
+    private float[]       _partialData;
+    private int _numGroupsX, _numGroupsY, _totalGroups;
     private int _texWidth, _texHeight;
 
     private Vector2 _smoothPos;
     private Vector2 _smoothVel;
-    private bool _hadDetection;
+    private bool    _hadDetection;
+    private float   _lostTimer;
+
+    private RenderTexture _finalMaskRT;
+
+    // Cached values to detect Inspector changes
+    private float _prev_hueMin, _prev_hueMax;
+    private float _prev_satMin, _prev_satMax;
+    private float _prev_valMin, _prev_valMax;
+    private int   _prev_erode1, _prev_dilate, _prev_erode2;
+    private int   _prev_minBlob;
+    private float _prev_posSm, _prev_velSm;
+    private float _prev_deadReckon, _prev_maxVel;
+
+    // PlayerPrefs keys
+    private const string K_HueMin        = "FT_hueMin";
+    private const string K_HueMax        = "FT_hueMax";
+    private const string K_SatMin        = "FT_satMin";
+    private const string K_SatMax        = "FT_satMax";
+    private const string K_ValMin        = "FT_valMin";
+    private const string K_ValMax        = "FT_valMax";
+    private const string K_Erode1        = "FT_erode1";
+    private const string K_Dilate        = "FT_dilate";
+    private const string K_Erode2        = "FT_erode2";
+    private const string K_MinBlob       = "FT_minBlob";
+    private const string K_PosSm         = "FT_posSm";
+    private const string K_VelSm         = "FT_velSm";
+    private const string K_DeadReckon    = "FT_deadReckon";
+    private const string K_MaxVel        = "FT_maxVel";
 
     // ─────────────────────────────────────────────────────────────────────────
 
     private void Start()
     {
+        LoadPrefs();
+        CacheValues();
         InitCompute();
     }
 
-    private void InitCompute()
+    public void InitCompute()
     {
+        CleanupCompute();
+
         if (videoTexture == null)
         {
             Debug.LogWarning("[YellowFishTracker] No videoTexture assigned.");
@@ -79,52 +129,130 @@ public class YellowFishTracker : MonoBehaviour
         _texWidth  = videoTexture.width;
         _texHeight = videoTexture.height;
 
-        // Mask render texture (R8 would suffice but float4 keeps shader simple)
-        _maskRT = new RenderTexture(_texWidth, _texHeight, 0, RenderTextureFormat.ARGB32)
-        {
-            enableRandomWrite = true
-        };
-        _maskRT.Create();
+        _maskA = MakeRT("FishMaskA");
+        _maskB = MakeRT("FishMaskB");
 
-        if (debugMaskTexture == null)
-            debugMaskTexture = _maskRT; // expose the same RT for debug viewing
-
-        _numGroupsX = Mathf.CeilToInt(_texWidth  / 8f);
-        _numGroupsY = Mathf.CeilToInt(_texHeight / 8f);
+        _numGroupsX  = Mathf.CeilToInt(_texWidth  / 8f);
+        _numGroupsY  = Mathf.CeilToInt(_texHeight / 8f);
         _totalGroups = _numGroupsX * _numGroupsY;
 
         _partialBuffer = new ComputeBuffer(_totalGroups * 7, sizeof(float));
         _partialData   = new float[_totalGroups * 7];
 
-        _kernelMask    = fishComputeShader.FindKernel("HueMask");
-        _kernelMoments = fishComputeShader.FindKernel("ReduceMoments");
+        _kMask    = fishComputeShader.FindKernel("HueMask");
+        _kErode   = fishComputeShader.FindKernel("Erode");
+        _kDilate  = fishComputeShader.FindKernel("Dilate");
+        _kMoments = fishComputeShader.FindKernel("ReduceMoments");
 
-        // Static bindings
         fishComputeShader.SetInt("TextureWidth",  _texWidth);
         fishComputeShader.SetInt("TextureHeight", _texHeight);
-        fishComputeShader.SetTexture(_kernelMask,    "MaskTexture",   _maskRT);
-        fishComputeShader.SetTexture(_kernelMoments, "MaskTexture",   _maskRT);
-        fishComputeShader.SetBuffer(_kernelMoments,  "PartialMoments", _partialBuffer);
+
+        fishComputeShader.SetTexture(_kMask, "InputTexture", videoTexture);
+        fishComputeShader.SetTexture(_kMask, "MaskA", _maskA);
+
+        debugMaskTexture = _maskA;
+    }
+
+    private RenderTexture MakeRT(string name)
+    {
+        var rt = new RenderTexture(_texWidth, _texHeight, 0, RenderTextureFormat.ARGB32)
+        {
+            enableRandomWrite = true,
+            name = name
+        };
+        rt.Create();
+        return rt;
     }
 
     private void Update()
     {
         if (videoTexture == null || fishComputeShader == null) return;
 
-        // Re-init if texture size changed (e.g. video loaded after Start)
         if (videoTexture.width != _texWidth || videoTexture.height != _texHeight)
-        {
-            CleanupCompute();
             InitCompute();
-        }
 
+        CheckAndSavePrefs();
         RunCompute();
         ReadbackAndProcess();
     }
 
+    // ── PlayerPrefs ───────────────────────────────────────────────────────────
+
+    private void LoadPrefs()
+    {
+        hueMin          = PlayerPrefs.GetFloat(K_HueMin,     hueMin);
+        hueMax          = PlayerPrefs.GetFloat(K_HueMax,     hueMax);
+        satMin          = PlayerPrefs.GetFloat(K_SatMin,     satMin);
+        satMax          = PlayerPrefs.GetFloat(K_SatMax,     satMax);
+        valMin          = PlayerPrefs.GetFloat(K_ValMin,     valMin);
+        valMax          = PlayerPrefs.GetFloat(K_ValMax,     valMax);
+        erode1Radius    = PlayerPrefs.GetInt  (K_Erode1,     erode1Radius);
+        dilateRadius    = PlayerPrefs.GetInt  (K_Dilate,     dilateRadius);
+        erode2Radius    = PlayerPrefs.GetInt  (K_Erode2,     erode2Radius);
+        minBlobPixels   = PlayerPrefs.GetInt  (K_MinBlob,    minBlobPixels);
+        positionSmoothing = PlayerPrefs.GetFloat(K_PosSm,   positionSmoothing);
+        velocitySmoothing = PlayerPrefs.GetFloat(K_VelSm,   velocitySmoothing);
+        deadReckonDuration = PlayerPrefs.GetFloat(K_DeadReckon, deadReckonDuration);
+        maxVelocity     = PlayerPrefs.GetFloat(K_MaxVel,     maxVelocity);
+
+        Debug.Log("[YellowFishTracker] Prefs loaded.");
+    }
+
+    private void SavePrefs()
+    {
+        PlayerPrefs.SetFloat(K_HueMin,     hueMin);
+        PlayerPrefs.SetFloat(K_HueMax,     hueMax);
+        PlayerPrefs.SetFloat(K_SatMin,     satMin);
+        PlayerPrefs.SetFloat(K_SatMax,     satMax);
+        PlayerPrefs.SetFloat(K_ValMin,     valMin);
+        PlayerPrefs.SetFloat(K_ValMax,     valMax);
+        PlayerPrefs.SetInt  (K_Erode1,     erode1Radius);
+        PlayerPrefs.SetInt  (K_Dilate,     dilateRadius);
+        PlayerPrefs.SetInt  (K_Erode2,     erode2Radius);
+        PlayerPrefs.SetInt  (K_MinBlob,    minBlobPixels);
+        PlayerPrefs.SetFloat(K_PosSm,      positionSmoothing);
+        PlayerPrefs.SetFloat(K_VelSm,      velocitySmoothing);
+        PlayerPrefs.SetFloat(K_DeadReckon, deadReckonDuration);
+        PlayerPrefs.SetFloat(K_MaxVel,     maxVelocity);
+        PlayerPrefs.Save();
+
+        Debug.Log("[YellowFishTracker] Prefs saved.");
+    }
+
+    private void CacheValues()
+    {
+        _prev_hueMin     = hueMin;     _prev_hueMax  = hueMax;
+        _prev_satMin     = satMin;     _prev_satMax  = satMax;
+        _prev_valMin     = valMin;     _prev_valMax  = valMax;
+        _prev_erode1     = erode1Radius;
+        _prev_dilate     = dilateRadius;
+        _prev_erode2     = erode2Radius;
+        _prev_minBlob    = minBlobPixels;
+        _prev_posSm      = positionSmoothing;
+        _prev_velSm      = velocitySmoothing;
+        _prev_deadReckon = deadReckonDuration;
+        _prev_maxVel     = maxVelocity;
+    }
+
+    private void CheckAndSavePrefs()
+    {
+        if (hueMin != _prev_hueMin || hueMax != _prev_hueMax ||
+            satMin != _prev_satMin || satMax != _prev_satMax ||
+            valMin != _prev_valMin || valMax != _prev_valMax ||
+            erode1Radius != _prev_erode1 || dilateRadius != _prev_dilate ||
+            erode2Radius != _prev_erode2 || minBlobPixels != _prev_minBlob ||
+            positionSmoothing != _prev_posSm || velocitySmoothing != _prev_velSm ||
+            deadReckonDuration != _prev_deadReckon || maxVelocity != _prev_maxVel)
+        {
+            SavePrefs();
+            CacheValues();
+        }
+    }
+
+    // ── Compute pipeline ──────────────────────────────────────────────────────
+
     private void RunCompute()
     {
-        // Per-frame HSV params (Inspector-tunable at runtime)
         fishComputeShader.SetFloat("HueMin", hueMin);
         fishComputeShader.SetFloat("HueMax", hueMax);
         fishComputeShader.SetFloat("SatMin", satMin);
@@ -132,23 +260,49 @@ public class YellowFishTracker : MonoBehaviour
         fishComputeShader.SetFloat("ValMin", valMin);
         fishComputeShader.SetFloat("ValMax", valMax);
 
-        fishComputeShader.SetTexture(_kernelMask, "InputTexture", videoTexture);
-        fishComputeShader.Dispatch(_kernelMask, _numGroupsX, _numGroupsY, 1);
-        fishComputeShader.Dispatch(_kernelMoments, _numGroupsX, _numGroupsY, 1);
+        // Pass 1: HueMask → MaskA
+        fishComputeShader.SetTexture(_kMask, "InputTexture", videoTexture);
+        fishComputeShader.SetTexture(_kMask, "MaskA", _maskA);
+        fishComputeShader.Dispatch(_kMask, _numGroupsX, _numGroupsY, 1);
+
+        // Pass 2: Erode MaskA → MaskB
+        fishComputeShader.SetInt("MorphRadius", erode1Radius);
+        fishComputeShader.SetTexture(_kErode, "MorphSrc", _maskA);
+        fishComputeShader.SetTexture(_kErode, "MorphDst", _maskB);
+        fishComputeShader.Dispatch(_kErode, _numGroupsX, _numGroupsY, 1);
+
+        // Pass 3: Dilate MaskB → MaskA
+        fishComputeShader.SetInt("MorphRadius", dilateRadius);
+        fishComputeShader.SetTexture(_kDilate, "MorphSrc", _maskB);
+        fishComputeShader.SetTexture(_kDilate, "MorphDst", _maskA);
+        fishComputeShader.Dispatch(_kDilate, _numGroupsX, _numGroupsY, 1);
+
+        // Pass 4: Erode MaskA → MaskB
+        fishComputeShader.SetInt("MorphRadius", erode2Radius);
+        fishComputeShader.SetTexture(_kErode, "MorphSrc", _maskA);
+        fishComputeShader.SetTexture(_kErode, "MorphDst", _maskB);
+        fishComputeShader.Dispatch(_kErode, _numGroupsX, _numGroupsY, 1);
+
+        _finalMaskRT     = _maskB;
+        debugMaskTexture = _maskB;
+
+        // Pass 5: ReduceMoments
+        fishComputeShader.SetTexture(_kMoments, "MorphSrc",      _finalMaskRT);
+        fishComputeShader.SetBuffer (_kMoments, "PartialMoments", _partialBuffer);
+        fishComputeShader.Dispatch(_kMoments, _numGroupsX, _numGroupsY, 1);
     }
 
     private void ReadbackAndProcess()
     {
         _partialBuffer.GetData(_partialData);
 
-        // Reduce partial group results on CPU
         float totalCount = 0, sumX = 0, sumY = 0;
         float minX = _texWidth, minY = _texHeight, maxX = 0, maxY = 0;
 
         for (int i = 0; i < _totalGroups; i++)
         {
             int b = i * 7;
-            float cnt = _partialData[b + 0];
+            float cnt = _partialData[b];
             if (cnt < 0.5f) continue;
 
             totalCount += cnt;
@@ -160,18 +314,23 @@ public class YellowFishTracker : MonoBehaviour
             maxY  = Mathf.Max(maxY, _partialData[b + 6]);
         }
 
-        float dt = Time.deltaTime > 0 ? Time.deltaTime : 0.016f;
+        float dt = Mathf.Max(Time.deltaTime, 0.001f);
 
         if (totalCount >= minBlobPixels)
         {
-            // Normalized centroid (0–1, Y flipped so 0=bottom)
+            _lostTimer = 0f;
+
             float rawX = sumX / totalCount / _texWidth;
             float rawY = 1f - (sumY / totalCount / _texHeight);
 
-            // Normalized bounding box width/height as size proxy
-            float bboxW = (maxX - minX) / _texWidth;
-            float bboxH = (maxY - minY) / _texHeight;
-            float size  = Mathf.Sqrt(bboxW * bboxH); // geometric mean → 0–1
+            float bboxMinX = minX / _texWidth;
+            float bboxMaxX = maxX / _texWidth;
+            float bboxMinY = 1f - (maxY / _texHeight);
+            float bboxMaxY = 1f - (minY / _texHeight);
+
+            float bboxW = bboxMaxX - bboxMinX;
+            float bboxH = bboxMaxY - bboxMinY;
+            float size  = Mathf.Sqrt(bboxW * bboxH);
 
             Vector2 rawPos = new Vector2(rawX, rawY);
 
@@ -182,31 +341,41 @@ public class YellowFishTracker : MonoBehaviour
                 _hadDetection = true;
             }
 
-            // EMA position smoothing
             Vector2 prevPos = _smoothPos;
             _smoothPos = Vector2.Lerp(_smoothPos, rawPos, positionSmoothing);
 
-            // Raw velocity in normalized units/sec, then EMA smooth
             Vector2 rawVel = (_smoothPos - prevPos) / dt;
+            rawVel     = Vector2.ClampMagnitude(rawVel, maxVelocity);
             _smoothVel = Vector2.Lerp(_smoothVel, rawVel, velocitySmoothing);
 
             Data = new FishTrackData
             {
-                detected         = true,
-                posX             = _smoothPos.x,
-                posY             = _smoothPos.y,
-                velX             = _smoothVel.x,
-                velY             = _smoothVel.y,
+                detected          = true,
+                posX              = _smoothPos.x,
+                posY              = _smoothPos.y,
+                velX              = _smoothVel.x,
+                velY              = _smoothVel.y,
                 velocityMagnitude = _smoothVel.magnitude,
-                size             = size,
-                blobPixelCount   = (int)totalCount
+                size              = size,
+                blobPixelCount    = (int)totalCount,
+                bboxMinX          = bboxMinX,
+                bboxMinY          = bboxMinY,
+                bboxMaxX          = bboxMaxX,
+                bboxMaxY          = bboxMaxY,
             };
         }
         else
         {
-            // No detection — decay velocity, hold last position
-            _smoothVel = Vector2.Lerp(_smoothVel, Vector2.zero, velocitySmoothing);
+            _lostTimer += dt;
             _hadDetection = false;
+
+            if (_lostTimer < deadReckonDuration)
+            {
+                _smoothPos += _smoothVel * dt;
+                _smoothPos  = new Vector2(Mathf.Clamp01(_smoothPos.x), Mathf.Clamp01(_smoothPos.y));
+            }
+
+            _smoothVel = Vector2.Lerp(_smoothVel, Vector2.zero, velocitySmoothing);
 
             Data = new FishTrackData
             {
@@ -216,46 +385,62 @@ public class YellowFishTracker : MonoBehaviour
                 velX              = _smoothVel.x,
                 velY              = _smoothVel.y,
                 velocityMagnitude = _smoothVel.magnitude,
-                size              = 0f,
-                blobPixelCount    = 0
+                size              = Data.size,
+                blobPixelCount    = 0,
+                bboxMinX          = Data.bboxMinX,
+                bboxMinY          = Data.bboxMinY,
+                bboxMaxX          = Data.bboxMaxX,
+                bboxMaxY          = Data.bboxMaxY,
             };
         }
     }
+
+    // ── Cleanup ───────────────────────────────────────────────────────────────
 
     private void CleanupCompute()
     {
         _partialBuffer?.Release();
         _partialBuffer = null;
-        if (_maskRT != null) { _maskRT.Release(); _maskRT = null; }
+        if (_maskA != null) { _maskA.Release(); _maskA = null; }
+        if (_maskB != null) { _maskB.Release(); _maskB = null; }
     }
 
     private void OnDestroy() => CleanupCompute();
 
-    // ── Editor debug gizmos (Scene view) ─────────────────────────────────────
+    // ── OnGUI diagnostics ─────────────────────────────────────────────────────
     private void OnGUI()
     {
         if (!Application.isEditor) return;
         var d = Data;
-        int x = 10, y = 10, h = 18;
-        GUI.Label(new Rect(x, y,      300, h), $"Detected:  {d.detected}");
-        GUI.Label(new Rect(x, y+h,    300, h), $"Pos:       ({d.posX:F3}, {d.posY:F3})");
-        GUI.Label(new Rect(x, y+h*2,  300, h), $"Vel:       ({d.velX:F3}, {d.velY:F3})");
-        GUI.Label(new Rect(x, y+h*3,  300, h), $"Speed:     {d.velocityMagnitude:F3}");
-        GUI.Label(new Rect(x, y+h*4,  300, h), $"Size:      {d.size:F3}");
-        GUI.Label(new Rect(x, y+h*5,  300, h), $"Pixels:    {d.blobPixelCount}");
+        int x = 10, y = 10, lh = 18;
+        GUI.Label(new Rect(x, y,      300, lh), $"Detected:  {d.detected}  (lost: {_lostTimer:F2}s)");
+        GUI.Label(new Rect(x, y+lh,   300, lh), $"Pos:       ({d.posX:F3}, {d.posY:F3})");
+        GUI.Label(new Rect(x, y+lh*2, 300, lh), $"Vel:       ({d.velX:F3}, {d.velY:F3})");
+        GUI.Label(new Rect(x, y+lh*3, 300, lh), $"Speed:     {d.velocityMagnitude:F3}");
+        GUI.Label(new Rect(x, y+lh*4, 300, lh), $"Size:      {d.size:F3}");
+        GUI.Label(new Rect(x, y+lh*5, 300, lh), $"Pixels:    {d.blobPixelCount}");
+        GUI.Label(new Rect(x, y+lh*6, 300, lh), $"BBox:      ({d.bboxMinX:F2},{d.bboxMinY:F2}) → ({d.bboxMaxX:F2},{d.bboxMaxY:F2})");
     }
 }
 
-/// <summary>All tracker outputs for one frame. Positions and size are normalized 0–1.</summary>
+/// <summary>
+/// All tracker outputs for one frame.
+/// Positions, bbox coords, and size are normalized 0–1.
+/// Y=0 is bottom, Y=1 is top.
+/// </summary>
 [System.Serializable]
 public struct FishTrackData
 {
     public bool  detected;
-    public float posX;              // 0=left,    1=right
-    public float posY;              // 0=bottom,  1=top
-    public float velX;              // signed, normalized units/sec
-    public float velY;              // signed, normalized units/sec
-    public float velocityMagnitude; // always >= 0
-    public float size;              // geometric mean of bbox dims, 0–1
-    public int   blobPixelCount;    // raw pixel count for diagnostics
+    public float posX;
+    public float posY;
+    public float velX;
+    public float velY;
+    public float velocityMagnitude;
+    public float size;
+    public int   blobPixelCount;
+    public float bboxMinX;
+    public float bboxMinY;
+    public float bboxMaxX;
+    public float bboxMaxY;
 }
