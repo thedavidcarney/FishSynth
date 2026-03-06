@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.IO;
 
 /// <summary>
 /// Tracks the yellow fish using a GPU hue-mask + morphology compute shader.
@@ -8,8 +9,10 @@ using UnityEngine;
 /// Outputs normalized (0–1) position, velocity, bbox, and size each frame
 /// via the Data property. Dead-reckoning holds position when fish is occluded.
 ///
-/// HSV and morphology values are saved to PlayerPrefs automatically when changed
-/// in Play mode, and restored on Start.
+/// Tunable settings are saved to/loaded from:
+///   Assets/StreamingAssets/FishTrackerConfig.json
+/// This file can be committed to git for shared defaults, or .gitignored for
+/// per-machine overrides.
 /// </summary>
 public class YellowFishTracker : MonoBehaviour
 {
@@ -91,27 +94,35 @@ public class YellowFishTracker : MonoBehaviour
     private float _prev_posSm, _prev_velSm;
     private float _prev_deadReckon, _prev_maxVel;
 
-    // PlayerPrefs keys
-    private const string K_HueMin        = "FT_hueMin";
-    private const string K_HueMax        = "FT_hueMax";
-    private const string K_SatMin        = "FT_satMin";
-    private const string K_SatMax        = "FT_satMax";
-    private const string K_ValMin        = "FT_valMin";
-    private const string K_ValMax        = "FT_valMax";
-    private const string K_Erode1        = "FT_erode1";
-    private const string K_Dilate        = "FT_dilate";
-    private const string K_Erode2        = "FT_erode2";
-    private const string K_MinBlob       = "FT_minBlob";
-    private const string K_PosSm         = "FT_posSm";
-    private const string K_VelSm         = "FT_velSm";
-    private const string K_DeadReckon    = "FT_deadReckon";
-    private const string K_MaxVel        = "FT_maxVel";
+    private static string ConfigPath =>
+        Path.Combine(Application.streamingAssetsPath, "FishTrackerConfig.json");
+
+    // ── Serializable config ───────────────────────────────────────────────────
+
+    [System.Serializable]
+    private class TrackerConfig
+    {
+        public float hueMin           = 0.10f;
+        public float hueMax           = 0.20f;
+        public float satMin           = 0.50f;
+        public float satMax           = 1.00f;
+        public float valMin           = 0.40f;
+        public float valMax           = 1.00f;
+        public int   erode1Radius     = 2;
+        public int   dilateRadius     = 6;
+        public int   erode2Radius     = 4;
+        public int   minBlobPixels    = 80;
+        public float positionSmoothing  = 0.5f;
+        public float velocitySmoothing  = 0.2f;
+        public float deadReckonDuration = 0.5f;
+        public float maxVelocity        = 5f;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
 
     private void Start()
     {
-        LoadPrefs();
+        LoadConfig();
         CacheValues();
         InitCompute();
     }
@@ -171,59 +182,88 @@ public class YellowFishTracker : MonoBehaviour
         if (videoTexture.width != _texWidth || videoTexture.height != _texHeight)
             InitCompute();
 
-        CheckAndSavePrefs();
+        CheckAndSaveConfig();
         RunCompute();
         ReadbackAndProcess();
     }
 
-    // ── PlayerPrefs ───────────────────────────────────────────────────────────
+    // ── Config save / load ────────────────────────────────────────────────────
 
-    private void LoadPrefs()
+    private void LoadConfig()
     {
-        hueMin          = PlayerPrefs.GetFloat(K_HueMin,     hueMin);
-        hueMax          = PlayerPrefs.GetFloat(K_HueMax,     hueMax);
-        satMin          = PlayerPrefs.GetFloat(K_SatMin,     satMin);
-        satMax          = PlayerPrefs.GetFloat(K_SatMax,     satMax);
-        valMin          = PlayerPrefs.GetFloat(K_ValMin,     valMin);
-        valMax          = PlayerPrefs.GetFloat(K_ValMax,     valMax);
-        erode1Radius    = PlayerPrefs.GetInt  (K_Erode1,     erode1Radius);
-        dilateRadius    = PlayerPrefs.GetInt  (K_Dilate,     dilateRadius);
-        erode2Radius    = PlayerPrefs.GetInt  (K_Erode2,     erode2Radius);
-        minBlobPixels   = PlayerPrefs.GetInt  (K_MinBlob,    minBlobPixels);
-        positionSmoothing = PlayerPrefs.GetFloat(K_PosSm,   positionSmoothing);
-        velocitySmoothing = PlayerPrefs.GetFloat(K_VelSm,   velocitySmoothing);
-        deadReckonDuration = PlayerPrefs.GetFloat(K_DeadReckon, deadReckonDuration);
-        maxVelocity     = PlayerPrefs.GetFloat(K_MaxVel,     maxVelocity);
+        if (!File.Exists(ConfigPath))
+        {
+            Debug.Log("[YellowFishTracker] No config file found, using defaults.");
+            return;
+        }
 
-        Debug.Log("[YellowFishTracker] Prefs loaded.");
+        try
+        {
+            string json = File.ReadAllText(ConfigPath);
+            var cfg = JsonUtility.FromJson<TrackerConfig>(json);
+
+            hueMin             = cfg.hueMin;
+            hueMax             = cfg.hueMax;
+            satMin             = cfg.satMin;
+            satMax             = cfg.satMax;
+            valMin             = cfg.valMin;
+            valMax             = cfg.valMax;
+            erode1Radius       = cfg.erode1Radius;
+            dilateRadius       = cfg.dilateRadius;
+            erode2Radius       = cfg.erode2Radius;
+            minBlobPixels      = cfg.minBlobPixels;
+            positionSmoothing  = cfg.positionSmoothing;
+            velocitySmoothing  = cfg.velocitySmoothing;
+            deadReckonDuration = cfg.deadReckonDuration;
+            maxVelocity        = cfg.maxVelocity;
+
+            Debug.Log($"[YellowFishTracker] Config loaded from {ConfigPath}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[YellowFishTracker] Failed to load config: {e.Message}");
+        }
     }
 
-    private void SavePrefs()
+    private void SaveConfig()
     {
-        PlayerPrefs.SetFloat(K_HueMin,     hueMin);
-        PlayerPrefs.SetFloat(K_HueMax,     hueMax);
-        PlayerPrefs.SetFloat(K_SatMin,     satMin);
-        PlayerPrefs.SetFloat(K_SatMax,     satMax);
-        PlayerPrefs.SetFloat(K_ValMin,     valMin);
-        PlayerPrefs.SetFloat(K_ValMax,     valMax);
-        PlayerPrefs.SetInt  (K_Erode1,     erode1Radius);
-        PlayerPrefs.SetInt  (K_Dilate,     dilateRadius);
-        PlayerPrefs.SetInt  (K_Erode2,     erode2Radius);
-        PlayerPrefs.SetInt  (K_MinBlob,    minBlobPixels);
-        PlayerPrefs.SetFloat(K_PosSm,      positionSmoothing);
-        PlayerPrefs.SetFloat(K_VelSm,      velocitySmoothing);
-        PlayerPrefs.SetFloat(K_DeadReckon, deadReckonDuration);
-        PlayerPrefs.SetFloat(K_MaxVel,     maxVelocity);
-        PlayerPrefs.Save();
+        try
+        {
+            var cfg = new TrackerConfig
+            {
+                hueMin             = hueMin,
+                hueMax             = hueMax,
+                satMin             = satMin,
+                satMax             = satMax,
+                valMin             = valMin,
+                valMax             = valMax,
+                erode1Radius       = erode1Radius,
+                dilateRadius       = dilateRadius,
+                erode2Radius       = erode2Radius,
+                minBlobPixels      = minBlobPixels,
+                positionSmoothing  = positionSmoothing,
+                velocitySmoothing  = velocitySmoothing,
+                deadReckonDuration = deadReckonDuration,
+                maxVelocity        = maxVelocity,
+            };
 
-        Debug.Log("[YellowFishTracker] Prefs saved.");
+            string dir = Path.GetDirectoryName(ConfigPath);
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            File.WriteAllText(ConfigPath, JsonUtility.ToJson(cfg, prettyPrint: true));
+            Debug.Log($"[YellowFishTracker] Config saved to {ConfigPath}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[YellowFishTracker] Failed to save config: {e.Message}");
+        }
     }
 
     private void CacheValues()
     {
-        _prev_hueMin     = hueMin;     _prev_hueMax  = hueMax;
-        _prev_satMin     = satMin;     _prev_satMax  = satMax;
-        _prev_valMin     = valMin;     _prev_valMax  = valMax;
+        _prev_hueMin     = hueMin;       _prev_hueMax  = hueMax;
+        _prev_satMin     = satMin;       _prev_satMax  = satMax;
+        _prev_valMin     = valMin;       _prev_valMax  = valMax;
         _prev_erode1     = erode1Radius;
         _prev_dilate     = dilateRadius;
         _prev_erode2     = erode2Radius;
@@ -234,7 +274,7 @@ public class YellowFishTracker : MonoBehaviour
         _prev_maxVel     = maxVelocity;
     }
 
-    private void CheckAndSavePrefs()
+    private void CheckAndSaveConfig()
     {
         if (hueMin != _prev_hueMin || hueMax != _prev_hueMax ||
             satMin != _prev_satMin || satMax != _prev_satMax ||
@@ -244,7 +284,7 @@ public class YellowFishTracker : MonoBehaviour
             positionSmoothing != _prev_posSm || velocitySmoothing != _prev_velSm ||
             deadReckonDuration != _prev_deadReckon || maxVelocity != _prev_maxVel)
         {
-            SavePrefs();
+            SaveConfig();
             CacheValues();
         }
     }
