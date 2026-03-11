@@ -609,63 +609,129 @@ MonoBehaviour:
   posX:
     label: Pos X
     enabled: 1
-    ccNumber: 20
+    mode: 1
     midiChannel: 1
+    ccNumber: 20
     inputMin: 0
     inputMax: 1
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+    pitchSource: 0
+    rootNote: 0
+    rootOctave: 2
+    scaleType: 3
+    octaveRange: 5
+    velocitySource: 0
+    fixedVelocity: 100
+    velocityInputMin: 0
+    velocityInputMax: 3
+    velocityTrackerField: 2
   posY:
     label: Pos Y
     enabled: 1
-    ccNumber: 21
+    mode: 0
     midiChannel: 1
+    ccNumber: 21
     inputMin: 0
     inputMax: 1
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+    pitchSource: 0
+    rootNote: 0
+    rootOctave: 4
+    scaleType: 1
+    octaveRange: 2
+    velocitySource: 0
+    fixedVelocity: 100
+    velocityInputMin: 0
+    velocityInputMax: 3
+    velocityTrackerField: 2
   velocityMag:
     label: Speed
     enabled: 1
-    ccNumber: 22
+    mode: 0
     midiChannel: 1
+    ccNumber: 22
     inputMin: 0
     inputMax: 3
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+    pitchSource: 0
+    rootNote: 0
+    rootOctave: 4
+    scaleType: 1
+    octaveRange: 2
+    velocitySource: 0
+    fixedVelocity: 100
+    velocityInputMin: 0
+    velocityInputMax: 3
+    velocityTrackerField: 2
   velX:
     label: Vel X
     enabled: 1
-    ccNumber: 23
+    mode: 0
     midiChannel: 1
+    ccNumber: 23
     inputMin: -3
     inputMax: 3
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+    pitchSource: 0
+    rootNote: 0
+    rootOctave: 4
+    scaleType: 1
+    octaveRange: 2
+    velocitySource: 0
+    fixedVelocity: 100
+    velocityInputMin: 0
+    velocityInputMax: 3
+    velocityTrackerField: 2
   velY:
     label: Vel Y
     enabled: 1
-    ccNumber: 24
+    mode: 0
     midiChannel: 1
+    ccNumber: 24
     inputMin: -3
     inputMax: 3
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+    pitchSource: 0
+    rootNote: 0
+    rootOctave: 4
+    scaleType: 1
+    octaveRange: 2
+    velocitySource: 0
+    fixedVelocity: 100
+    velocityInputMin: 0
+    velocityInputMax: 3
+    velocityTrackerField: 2
   size:
     label: Size
     enabled: 1
-    ccNumber: 25
+    mode: 0
     midiChannel: 1
+    ccNumber: 25
     inputMin: 0
     inputMax: 0.3
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
+    pitchSource: 0
+    rootNote: 0
+    rootOctave: 4
+    scaleType: 1
+    octaveRange: 2
+    velocitySource: 0
+    fixedVelocity: 100
+    velocityInputMin: 0
+    velocityInputMax: 3
+    velocityTrackerField: 2
   debugLogging: 1
 --- !u!114 &1031224874
 MonoBehaviour:
