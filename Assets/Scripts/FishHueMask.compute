@@ -18,6 +18,9 @@ RWTexture2D<float4> MaskB;          // pong
 Texture2D<float4>   MorphSrc;       // bound per-pass by C# (either MaskA or MaskB)
 RWTexture2D<float4> MorphDst;       // bound per-pass by C#
 
+Texture2D<float4>   ExclusionMask;  // user-painted mask: white=allow, black=exclude
+SamplerState        sampler_point_clamp; // point-filtered, clamped sampler
+
 uint TextureWidth;
 uint TextureHeight;
 
@@ -60,6 +63,17 @@ float3 RGBtoHSV(float3 c)
 void HueMask(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= TextureWidth || id.y >= TextureHeight) return;
+
+    // Check exclusion mask (UV-sampled; no Y flip — mask texture y=0 is bottom,
+    // matching the MaskPainter's SetPixels32 convention)
+    float2 uv = float2((id.x + 0.5) / (float)TextureWidth,
+                        (id.y + 0.5) / (float)TextureHeight);
+    float maskVal = ExclusionMask.SampleLevel(sampler_point_clamp, uv, 0).r;
+    if (maskVal < 0.5)
+    {
+        MaskA[id.xy] = float4(0, 0, 0, 1);
+        return;
+    }
 
     float4 col = InputTexture[id.xy];
     float3 hsv = RGBtoHSV(col.rgb);

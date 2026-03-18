@@ -115,6 +115,22 @@ UI overlay:
 
 ---
 
+### `MaskPainter.cs`
+Runtime-drawable exclusion mask for noise filtering. Lets the user paint regions to exclude from tracking.
+
+**Controls:**
+- **Left-click** — paint (exclude region, shown as red overlay)
+- **Right-click** — erase (re-allow region)
+- **Scroll wheel** — adjust brush radius (5–200 mask pixels)
+
+**Mask:** 1920×1080 `Texture2D`, white = allow, black = exclude. Saved as `Assets/StreamingAssets/ExclusionMask.png` (auto-saved 1s after last edit, auto-loaded on Start).
+
+**Integration:** Sets `tracker.exclusionMask` at runtime. The compute shader's `HueMask` kernel samples the mask via UV and discards excluded pixels before HSV thresholding.
+
+**Setup:** Attach to any GameObject, assign `tracker` and `videoImage` (the video RawImage from FishDebugCanvas). A red semi-transparent overlay and brush cursor are created automatically.
+
+---
+
 ### Diagnostic Scripts
 - **`MidiPortLister.cs`** — logs all MIDI output ports on Start, then disposes. Use to verify IAC Driver is visible.
 - **`MidiLoopbackTester.cs`** — opens a MIDI input port by name, logs all incoming CC/Note messages via callback. `inputPortName` should match the IAC port (e.g. `"IAC Driver Bus 1"`). Inspector shows `lastCcNumber/Value/Channel` for live monitoring.
@@ -126,7 +142,8 @@ UI overlay:
 2. `YellowFishTracker` (same or separate GO) — assign `fishComputeShader`
 3. `FishMidiOutput` — references tracker, set `midiPortName`
 4. Debug Canvas with `FishDebugCanvas` (optional)
-5. `MidiPortLister` and/or `MidiLoopbackTester` on any GO for diagnostics (remove after confirming)
+5. `MaskPainter` on any GO — assign tracker + videoImage for runtime noise masking
+6. `MidiPortLister` and/or `MidiLoopbackTester` on any GO for diagnostics (remove after confirming)
 
 ---
 
@@ -158,3 +175,4 @@ UI overlay:
 - **Velocity source is read-only** — setting velocitySource to VelocityMag does not affect that field's own CC output; the two are independent.
 - **Scale degree change = retrigger** — same note number never retriggered (no per-frame spam).
 - **`FishTrackerConfig.json`** — can be committed to git for shared HSV/morphology defaults, or .gitignored for per-machine tuning.
+- **`ExclusionMask.png`** — user-painted noise exclusion mask (1920×1080). Saved in StreamingAssets, loaded on Start. White = allow tracking, black = exclude. Can be deleted to reset.

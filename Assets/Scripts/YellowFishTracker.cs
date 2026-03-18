@@ -28,6 +28,9 @@ public class YellowFishTracker : MonoBehaviour
     [Tooltip("The processed mask RT after morphology. Wired to debug RawImage by VideoFileInput.")]
     public RenderTexture debugMaskTexture;
 
+    [Tooltip("User-painted exclusion mask (white=allow, black=exclude). Set by MaskPainter at runtime.")]
+    [HideInInspector] public Texture2D exclusionMask;
+
     [Header("HSV Thresholds  (0–1; Hue: 0=red  0.167=yellow  0.333=green  0.667=blue)")]
     [Range(0f, 1f)] public float hueMin = 0.10f;
     [Range(0f, 1f)] public float hueMax = 0.20f;
@@ -84,6 +87,7 @@ public class YellowFishTracker : MonoBehaviour
     private float   _lostTimer;
 
     private RenderTexture _finalMaskRT;
+    private Texture2D _defaultExclusionMask;
 
     // Cached values to detect Inspector changes
     private float _prev_hueMin, _prev_hueMax;
@@ -160,6 +164,16 @@ public class YellowFishTracker : MonoBehaviour
 
         fishComputeShader.SetTexture(_kMask, "InputTexture", videoTexture);
         fishComputeShader.SetTexture(_kMask, "MaskA", _maskA);
+
+        // Bind exclusion mask (default 1x1 white = all allowed)
+        if (_defaultExclusionMask == null)
+        {
+            _defaultExclusionMask = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            _defaultExclusionMask.SetPixel(0, 0, Color.white);
+            _defaultExclusionMask.Apply();
+        }
+        fishComputeShader.SetTexture(_kMask, "ExclusionMask",
+            exclusionMask != null ? exclusionMask : _defaultExclusionMask);
 
         debugMaskTexture = _maskA;
     }
@@ -303,6 +317,8 @@ public class YellowFishTracker : MonoBehaviour
         // Pass 1: HueMask → MaskA
         fishComputeShader.SetTexture(_kMask, "InputTexture", videoTexture);
         fishComputeShader.SetTexture(_kMask, "MaskA", _maskA);
+        fishComputeShader.SetTexture(_kMask, "ExclusionMask",
+            exclusionMask != null ? exclusionMask : _defaultExclusionMask);
         fishComputeShader.Dispatch(_kMask, _numGroupsX, _numGroupsY, 1);
 
         // Pass 2: Erode MaskA → MaskB
@@ -445,7 +461,11 @@ public class YellowFishTracker : MonoBehaviour
         if (_maskB != null) { _maskB.Release(); _maskB = null; }
     }
 
-    private void OnDestroy() => CleanupCompute();
+    private void OnDestroy()
+    {
+        CleanupCompute();
+        if (_defaultExclusionMask != null) Destroy(_defaultExclusionMask);
+    }
 
     // ── OnGUI diagnostics ─────────────────────────────────────────────────────
     private void OnGUI()

@@ -122,6 +122,55 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &242986481
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 242986483}
+  - component: {fileID: 242986482}
+  m_Layer: 0
+  m_Name: MaskPainter
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &242986482
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242986481}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0093659043b14bbebe170e9dac4e798, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tracker: {fileID: 1031224874}
+  videoImage: {fileID: 1887153121}
+  brushRadius: 30
+  scrollStep: 5
+  overlayAlpha: 0.4
+--- !u!4 &242986483
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 242986481}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &350585747
 GameObject:
   m_ObjectHideFlags: 0
@@ -239,11 +288,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74aa943189e5dfb44b154bf4c689c1da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  videoFileName: fishtank1.mov
+  videoFileName: Fish Tank 4k.mov
   absolutePath: 
   loop: 1
   playOnStart: 1
   playbackSpeed: 1
+  downsampleFactor: 2
   tracker: {fileID: 1031224874}
   debugMaskImage: {fileID: 350585748}
   videoImage: {fileID: 1887153121}
@@ -627,6 +677,7 @@ MonoBehaviour:
     velocityInputMin: 0
     velocityInputMax: 3
     velocityTrackerField: 2
+    legato: 1
   posY:
     label: Pos Y
     enabled: 1
@@ -648,6 +699,7 @@ MonoBehaviour:
     velocityInputMin: 0
     velocityInputMax: 3
     velocityTrackerField: 2
+    legato: 0
   velocityMag:
     label: Speed
     enabled: 1
@@ -669,6 +721,7 @@ MonoBehaviour:
     velocityInputMin: 0
     velocityInputMax: 3
     velocityTrackerField: 2
+    legato: 0
   velX:
     label: Vel X
     enabled: 1
@@ -690,6 +743,7 @@ MonoBehaviour:
     velocityInputMin: 0
     velocityInputMax: 3
     velocityTrackerField: 2
+    legato: 0
   velY:
     label: Vel Y
     enabled: 1
@@ -711,6 +765,7 @@ MonoBehaviour:
     velocityInputMin: 0
     velocityInputMax: 3
     velocityTrackerField: 2
+    legato: 0
   size:
     label: Size
     enabled: 1
@@ -732,6 +787,7 @@ MonoBehaviour:
     velocityInputMin: 0
     velocityInputMax: 3
     velocityTrackerField: 2
+    legato: 0
   debugLogging: 1
 --- !u!114 &1031224874
 MonoBehaviour:
@@ -748,15 +804,16 @@ MonoBehaviour:
   fishComputeShader: {fileID: 7200000, guid: 10d6e28e41f3e794b882a8cf59281a02, type: 3}
   videoTexture: {fileID: 0}
   debugMaskTexture: {fileID: 0}
+  exclusionMask: {fileID: 0}
   hueMin: 0.1
   hueMax: 0.2
   satMin: 0.5
   satMax: 1
   valMin: 0.4
   valMax: 1
-  erode1Radius: 1
-  dilateRadius: 1
-  erode2Radius: 1
+  erode1Radius: 7
+  dilateRadius: 15
+  erode2Radius: 5
   minBlobPixels: 80
   positionSmoothing: 0.5
   velocitySmoothing: 0.2
@@ -769,7 +826,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1031224871}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6f1638790d9beea4bb83d21f49e7d240, type: 3}
   m_Name: 
@@ -974,6 +1031,7 @@ MonoBehaviour:
   bboxLineThickness: 2
   showBboxWhenLost: 1
   bboxLostColor: {r: 1, g: 0.5, b: 0, a: 1}
+  autoFitToScreen: 1
 --- !u!114 &1482499028
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1287,3 +1345,4 @@ SceneRoots:
   - {fileID: 1031224872}
   - {fileID: 1824148381}
   - {fileID: 1482499031}
+  - {fileID: 242986483}
