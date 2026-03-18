@@ -202,10 +202,6 @@ public class FishMidiOutput : MonoBehaviour
         // Only retrigger if scale degree has changed
         if (noteNumber == mapping.currentNote) return;
 
-        // Send note-off for previous note first (legato)
-        if (mapping.currentNote >= 0)
-            SendNoteOff(mapping, mapping.currentNote);
-
         // Resolve velocity
         int velocity = mapping.velocitySource == VelocitySource.Fixed
             ? mapping.fixedVelocity
@@ -215,7 +211,21 @@ public class FishMidiOutput : MonoBehaviour
                         GetTrackerValue(mapping.velocityTrackerField, d)) * 127f),
                 1, 127);
 
-        SendNoteOn(mapping, noteNumber, velocity);
+        if (mapping.legato)
+        {
+            // Legato: new note-on first, then old note-off (overlapping notes
+            // let mono synths glide without retriggering the envelope)
+            SendNoteOn(mapping, noteNumber, velocity);
+            if (mapping.currentNote >= 0)
+                SendNoteOff(mapping, mapping.currentNote);
+        }
+        else
+        {
+            // Retrigger: note-off first, then note-on (each note attacks fresh)
+            if (mapping.currentNote >= 0)
+                SendNoteOff(mapping, mapping.currentNote);
+            SendNoteOn(mapping, noteNumber, velocity);
+        }
         mapping.currentNote = noteNumber;
     }
 
@@ -437,6 +447,9 @@ public class MidiChannelMapping
 
     [Tooltip("Tracker field to read for velocity (used when velocitySource != Fixed).")]
     public TrackerField velocityTrackerField = TrackerField.VelocityMag;
+
+    [Tooltip("Legato: send new note-on before old note-off (smooth transitions, no retrigger). Off: note-off first, then note-on (each note retriggers the envelope).")]
+    public bool legato = false;
 
     // ── Runtime state (not serialized) ────────────────────────────────────────
 
