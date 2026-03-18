@@ -5,7 +5,7 @@
     "satMax": 1.0,
     "valMin": 0.0,
     "valMax": 1.0,
-    "erode1Radius": 4,
+    "erode1Radius": 10,
     "dilateRadius": 17,
     "erode2Radius": 1,
     "minBlobPixels": 80,
