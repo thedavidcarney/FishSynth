@@ -51,6 +51,7 @@ public class VideoFileInput : MonoBehaviour
 
     private VideoPlayer _vp;
     private RenderTexture _outputTexture;
+    private int _activeDownsampleFactor = 1;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -77,9 +78,19 @@ public class VideoFileInput : MonoBehaviour
 
     private void OnPrepareCompleted(VideoPlayer vp)
     {
+        ApplyDownsample();
+
+        if (playOnStart) vp.Play();
+    }
+
+    private void ApplyDownsample()
+    {
+        if (!_vp.isPrepared) return;
+
         int factor = Mathf.Clamp(downsampleFactor, 1, 4);
-        int w = (int)vp.width  / factor;
-        int h = (int)vp.height / factor;
+        int w = (int)_vp.width  / factor;
+        int h = (int)_vp.height / factor;
+        _activeDownsampleFactor = factor;
 
         if (_outputTexture == null || _outputTexture.width != w || _outputTexture.height != h)
         {
@@ -93,22 +104,19 @@ public class VideoFileInput : MonoBehaviour
             _outputTexture.Create();
 
             Debug.Log($"[VideoFileInput] Created RenderTexture {w}x{h}" +
-                      (factor > 1 ? $" (native {vp.width}x{vp.height}, downsample {factor}x)" : "") +
+                      (factor > 1 ? $" (native {_vp.width}x{_vp.height}, downsample {factor}x)" : "") +
                       ".");
         }
 
-        vp.targetTexture = _outputTexture;
+        _vp.targetTexture = _outputTexture;
 
         if (tracker != null)
         {
-            // Push video RT to tracker and force compute init so debugMaskTexture exists
             tracker.videoTexture = _outputTexture;
             tracker.InitCompute();
 
-            // Now the mask RT exists — wire up the debug RawImage
             if (debugMaskImage != null)
                 debugMaskImage.texture = tracker.debugMaskTexture;
-
         }
         else
         {
@@ -123,13 +131,15 @@ public class VideoFileInput : MonoBehaviour
             var rend = GetComponent<Renderer>();
             if (rend) rend.material.mainTexture = _outputTexture;
         }
-
-        if (playOnStart) vp.Play();
     }
 
     private void Update()
     {
         _vp.playbackSpeed = playbackSpeed;
+
+        int factor = Mathf.Clamp(downsampleFactor, 1, 4);
+        if (factor != _activeDownsampleFactor)
+            ApplyDownsample();
     }
 
     // ── Public controls ───────────────────────────────────────────────────────

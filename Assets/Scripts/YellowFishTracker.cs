@@ -38,13 +38,13 @@ public class YellowFishTracker : MonoBehaviour
 
     [Header("Morphology")]
     [Tooltip("Radius for first Erode pass. Removes isolated noise specs.")]
-    [Range(1, 10)] public int erode1Radius = 2;
+    [Range(1, 20)] public int erode1Radius = 2;
 
     [Tooltip("Radius for Dilate pass. Bridges gaps between disconnected fish blobs.")]
-    [Range(1, 20)] public int dilateRadius = 6;
+    [Range(1, 40)] public int dilateRadius = 6;
 
     [Tooltip("Radius for second Erode pass. Brings blob back to roughly fish size.")]
-    [Range(1, 10)] public int erode2Radius = 4;
+    [Range(1, 20)] public int erode2Radius = 4;
 
     [Header("Tracking")]
     [Tooltip("Minimum pixel count in final mask to consider a valid detection.")]
