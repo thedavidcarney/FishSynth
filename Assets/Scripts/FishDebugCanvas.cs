@@ -46,11 +46,17 @@ public class FishDebugCanvas : MonoBehaviour
     [Tooltip("Color tint when fish is not detected.")]
     public Color bboxLostColor = new Color(1f, 0.5f, 0f); // orange
 
+    [Header("Scaling")]
+    [Tooltip("Automatically scale the video preview to fit the screen while preserving aspect ratio.")]
+    public bool autoFitToScreen = true;
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private Material _additiveMaterial;
     private Image[]  _bboxImages;
     private RectTransform _videoRect;
+    private AspectRatioFitter _videoFitter;
+    private AspectRatioFitter _maskFitter;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -74,6 +80,39 @@ public class FishDebugCanvas : MonoBehaviour
 
         _videoRect = videoImage != null ? videoImage.rectTransform : null;
 
+        // Set up AspectRatioFitters for auto-scaling
+        if (autoFitToScreen)
+        {
+            if (videoImage != null)
+            {
+                _videoFitter = videoImage.GetComponent<AspectRatioFitter>();
+                if (_videoFitter == null)
+                    _videoFitter = videoImage.gameObject.AddComponent<AspectRatioFitter>();
+                _videoFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+
+                // Stretch anchors so FitInParent works within the full canvas
+                var rt = videoImage.rectTransform;
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+
+            if (maskImage != null)
+            {
+                _maskFitter = maskImage.GetComponent<AspectRatioFitter>();
+                if (_maskFitter == null)
+                    _maskFitter = maskImage.gameObject.AddComponent<AspectRatioFitter>();
+                _maskFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+
+                var rt = maskImage.rectTransform;
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+        }
+
         // Collect bbox Image components for color setting
         _bboxImages = new Image[]
         {
@@ -88,8 +127,24 @@ public class FishDebugCanvas : MonoBehaviour
 
     private void Update()
     {
+        UpdateAspectRatio();
         UpdateMaskBlend();
         UpdateBoundingBox();
+    }
+
+    private void UpdateAspectRatio()
+    {
+        if (!autoFitToScreen) return;
+
+        Texture tex = videoImage != null ? videoImage.texture : null;
+        if (tex == null || tex.height == 0) return;
+
+        float aspect = (float)tex.width / tex.height;
+
+        if (_videoFitter != null)
+            _videoFitter.aspectRatio = aspect;
+        if (_maskFitter != null)
+            _maskFitter.aspectRatio = aspect;
     }
 
     private void UpdateMaskBlend()

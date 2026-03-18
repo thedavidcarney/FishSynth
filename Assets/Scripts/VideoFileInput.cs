@@ -29,6 +29,11 @@ public class VideoFileInput : MonoBehaviour
     [Range(0.1f, 4f)]
     public float playbackSpeed = 1f;
 
+    [Header("Resolution")]
+    [Tooltip("Divide native resolution by this factor to reduce GPU load. 1 = native, 2 = half, 4 = quarter.")]
+    [Range(1, 4)]
+    public int downsampleFactor = 1;
+
     [Header("Output")]
     [Tooltip("Assign the YellowFishTracker here — videoTexture will be set automatically at runtime.")]
     public YellowFishTracker tracker;
@@ -72,21 +77,24 @@ public class VideoFileInput : MonoBehaviour
 
     private void OnPrepareCompleted(VideoPlayer vp)
     {
-        uint w = vp.width;
-        uint h = vp.height;
+        int factor = Mathf.Clamp(downsampleFactor, 1, 4);
+        int w = (int)vp.width  / factor;
+        int h = (int)vp.height / factor;
 
-        if (_outputTexture == null || _outputTexture.width != (int)w || _outputTexture.height != (int)h)
+        if (_outputTexture == null || _outputTexture.width != w || _outputTexture.height != h)
         {
             if (_outputTexture != null) _outputTexture.Release();
 
-            _outputTexture = new RenderTexture((int)w, (int)h, 0, RenderTextureFormat.ARGB32)
+            _outputTexture = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32)
             {
                 enableRandomWrite = true,
                 name              = "FishVideoRT"
             };
             _outputTexture.Create();
 
-            Debug.Log($"[VideoFileInput] Created RenderTexture {w}x{h}.");
+            Debug.Log($"[VideoFileInput] Created RenderTexture {w}x{h}" +
+                      (factor > 1 ? $" (native {vp.width}x{vp.height}, downsample {factor}x)" : "") +
+                      ".");
         }
 
         vp.targetTexture = _outputTexture;
