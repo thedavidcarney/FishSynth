@@ -668,7 +668,7 @@ MonoBehaviour:
     outputMax: 127
     holdOnLostDetection: 1
     pitchSource: 0
-    rootNote: 0
+    rootNote: 4
     rootOctave: 2
     scaleType: 3
     octaveRange: 5
@@ -693,7 +693,7 @@ MonoBehaviour:
     rootNote: 0
     rootOctave: 4
     scaleType: 1
-    octaveRange: 2
+    octaveRange: 1
     velocitySource: 0
     fixedVelocity: 100
     velocityInputMin: 0

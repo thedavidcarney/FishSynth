@@ -181,6 +181,7 @@ public class FishMidiOutput : MonoBehaviour
             {
                 SendNoteOff(mapping, mapping.currentNote);
                 mapping.currentNote = -1;
+                mapping.lastScaleIndex = -1;
             }
             return;
         }
@@ -189,17 +190,44 @@ public class FishMidiOutput : MonoBehaviour
         int rootMidi    = NoteNameToMidi(mapping.rootNote, mapping.rootOctave);
         int totalNotes  = scale.Length * mapping.octaveRange;
 
-        // Map input range → scale index
+        // Map input range → scale index (zone)
         float t         = Mathf.InverseLerp(mapping.inputMin, mapping.inputMax, rawValue);
         t               = Mathf.Clamp01(t);
         int scaleIndex  = Mathf.Clamp(Mathf.FloorToInt(t * totalNotes), 0, totalNotes - 1);
 
-        // Convert scale index to MIDI note number
-        int octave      = scaleIndex / scale.Length;
-        int degree      = scaleIndex % scale.Length;
-        int noteNumber  = Mathf.Clamp(rootMidi + octave * 12 + scale[degree], 0, 127);
+        int noteNumber;
 
-        // Only retrigger if scale degree has changed
+        if (mapping.noteOrder == NoteOrder.Random)
+        {
+            // Only pick a new random note when the fish crosses into a different zone
+            if (scaleIndex == mapping.lastScaleIndex) return;
+            mapping.lastScaleIndex = scaleIndex;
+
+            // Pick a random scale index from the full range
+            int randomIndex = UnityEngine.Random.Range(0, totalNotes);
+            noteNumber = Mathf.Clamp(ScaleIndexToMidi(randomIndex, scale, rootMidi), 0, 127);
+        }
+        else if (mapping.noteOrder == NoteOrder.Shuffle)
+        {
+            // Rebuild shuffle map if settings changed or not yet built
+            if (mapping.shuffleMap == null || mapping.shuffleMap.Length != totalNotes
+                || mapping.shuffleScale != mapping.scaleType
+                || mapping.shuffleOctaveRange != mapping.octaveRange
+                || mapping.shuffleRootNote != mapping.rootNote
+                || mapping.shuffleRootOctave != mapping.rootOctave)
+            {
+                BuildShuffleMap(mapping, totalNotes);
+            }
+
+            int shuffledIndex = mapping.shuffleMap[scaleIndex];
+            noteNumber = Mathf.Clamp(ScaleIndexToMidi(shuffledIndex, scale, rootMidi), 0, 127);
+        }
+        else // Sequential (original behavior)
+        {
+            noteNumber = Mathf.Clamp(ScaleIndexToMidi(scaleIndex, scale, rootMidi), 0, 127);
+        }
+
+        // Only retrigger if note has changed
         if (noteNumber == mapping.currentNote) return;
 
         // Resolve velocity
@@ -244,6 +272,37 @@ public class FishMidiOutput : MonoBehaviour
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private int ScaleIndexToMidi(int scaleIndex, int[] scale, int rootMidi)
+    {
+        int octave = scaleIndex / scale.Length;
+        int degree = scaleIndex % scale.Length;
+        return rootMidi + octave * 12 + scale[degree];
+    }
+
+    private void BuildShuffleMap(MidiChannelMapping mapping, int totalNotes)
+    {
+        mapping.shuffleMap = new int[totalNotes];
+        for (int i = 0; i < totalNotes; i++)
+            mapping.shuffleMap[i] = i;
+
+        // Fisher-Yates shuffle
+        for (int i = totalNotes - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            int tmp = mapping.shuffleMap[i];
+            mapping.shuffleMap[i] = mapping.shuffleMap[j];
+            mapping.shuffleMap[j] = tmp;
+        }
+
+        // Cache the params this shuffle was built for
+        mapping.shuffleScale = mapping.scaleType;
+        mapping.shuffleOctaveRange = mapping.octaveRange;
+        mapping.shuffleRootNote = mapping.rootNote;
+        mapping.shuffleRootOctave = mapping.rootOctave;
+
+        if (debugLogging) Debug.Log($"[FishMidiOutput] Built shuffle map ({totalNotes} notes)");
+    }
 
     private int NoteNameToMidi(RootNote note, int octave)
     {
@@ -338,6 +397,13 @@ public enum VelocitySource
     VelX,
     VelY,
     Size
+}
+
+public enum NoteOrder
+{
+    Sequential,
+    Random,
+    Shuffle
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -451,7 +517,19 @@ public class MidiChannelMapping
     [Tooltip("Legato: send new note-on before old note-off (smooth transitions, no retrigger). Off: note-off first, then note-on (each note retriggers the envelope).")]
     public bool legato = false;
 
+    [Tooltip("Sequential: low-to-high. Random: pick a random scale note each zone change. Shuffle: randomize the zone-to-note mapping once, then keep it consistent.")]
+    public NoteOrder noteOrder = NoteOrder.Sequential;
+
     // ── Runtime state (not serialized) ────────────────────────────────────────
 
     [System.NonSerialized] public int currentNote = -1; // -1 = no note playing
+    [System.NonSerialized] public int lastScaleIndex = -1; // tracks zone for Random/Shuffle
+
+    // Shuffle state — maps scaleIndex → shuffled scaleIndex
+    [System.NonSerialized] public int[] shuffleMap = null;
+    // Cached params that the shuffle was built for — rebuild when any change
+    [System.NonSerialized] public ScaleType shuffleScale;
+    [System.NonSerialized] public int shuffleOctaveRange;
+    [System.NonSerialized] public RootNote shuffleRootNote;
+    [System.NonSerialized] public int shuffleRootOctave;
 }
