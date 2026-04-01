@@ -68,6 +68,11 @@ float bboxMinX/Y, bboxMaxX/Y  // normalized bbox
 ### `FishMidiOutput.cs`
 Reads `tracker.Data` each Update, sends MIDI via RtMidi. Each of the 6 mappings is independently configurable in **CC mode** or **Note mode**.
 
+**Global settings on FishMidiOutput (shared by all channels):**
+- `rootNote` (C default) — root of the scale
+- `scaleType` — 15 options including Custom
+- `customC` through `customB` — 12 booleans defining the Custom scale (which semitones are active)
+
 **6 mappings (defaults):**
 | Label    | CC# | Input Range |
 |----------|-----|-------------|
@@ -78,25 +83,26 @@ Reads `tracker.Data` each Update, sends MIDI via RtMidi. Each of the 6 mappings 
 | Vel Y    | 24  | -3–3        |
 | Size     | 25  | 0–0.3       |
 
+Each mapping's pitch source is implicit — Pos X mapping always reads `d.posX`, etc. No `pitchSource` field.
+
 **CC mode:** Maps input range → 0–127, suppresses unchanged values, optional hold-on-lost.
 
-**Note mode:**
-- `pitchSource` — which `TrackerField` drives pitch (PosX, PosY, VelocityMag, VelX, VelY, Size)
-- `rootNote` (C default) + `rootOctave` (4 default)
-- `scaleType` — 14 options (see below)
+**Note mode (per-channel settings):**
+- `rootOctave` (4 default) — octave of the root note
 - `octaveRange` — how many octaves the input spans (1–6)
 - `velocitySource` — Fixed (default 100) or any TrackerField
 - Legato: note-on only fires when scale degree changes; note-off sent before each new note-on
+- `noteOrder` — Sequential, Random, or Shuffle
 - Fish lost: immediate note-off, silence until redetected
 - `OnDestroy`: all held notes silenced (no stuck notes on Play exit)
 
-**Supported scales:** Chromatic, Major, Natural Minor, Harmonic Minor, Melodic Minor, Pentatonic Major, Pentatonic Minor, Blues, Dorian, Phrygian, Lydian, Mixolydian, Whole Tone, Diminished
+**Supported scales:** Chromatic, Major, Natural Minor, Harmonic Minor, Melodic Minor, Pentatonic Major, Pentatonic Minor, Blues, Dorian, Phrygian, Lydian, Mixolydian, Whole Tone, Diminished, Custom
 
 **Port selection:** `midiPortName` does partial string match on output ports. For IAC: set to `"IAC Driver"` or `"Bus 1"`. Leave empty to use port 0.
 
-**Enums:** `MidiMode`, `RootNote`, `ScaleType`, `TrackerField`, `VelocitySource`
+**Enums:** `MidiMode`, `RootNote`, `ScaleType`, `TrackerField`, `VelocitySource`, `NoteOrder`
 
-**Static helper:** `MidiScales.GetIntervals(ScaleType)` returns semitone interval array.
+**Static helpers:** `MidiScales.GetIntervals(ScaleType)` returns semitone interval array. `MidiScales.GetCustomIntervals(FishMidiOutput)` builds interval array from the 12 custom booleans.
 
 ---
 
@@ -166,6 +172,10 @@ Runtime-drawable exclusion mask for noise filtering. Lets the user paint regions
 - Mac development, CoreMIDI/IAC working
 - CC mode confirmed working: CC20–25 sending with suppression and hold logic
 - Note mode implemented: legato, scale quantization, per-mapping pitch source and velocity source
+- Scale settings (rootNote, scaleType, custom booleans) are global on FishMidiOutput — shared by all channels
+- Custom scale type added: 12 booleans (one per semitone) define which notes are playable
+- pitchSource removed — each mapping always uses its own natural tracker field
+- Octave + octaveRange are per-channel (in MidiChannelMapping), not global
 - Windows MIDI (WinMM) was abandoned due to driver issues — do not pursue
 
 ---
@@ -176,3 +186,120 @@ Runtime-drawable exclusion mask for noise filtering. Lets the user paint regions
 - **Scale degree change = retrigger** — same note number never retriggered (no per-frame spam).
 - **`FishTrackerConfig.json`** — can be committed to git for shared HSV/morphology defaults, or .gitignored for per-machine tuning.
 - **`ExclusionMask.png`** — user-painted noise exclusion mask (1920×1080). Saved in StreamingAssets, loaded on Start. White = allow tracking, black = exclude. Can be deleted to reset.
+
+---
+
+## UI Architecture
+
+The UI is built with **Shapes by Freya Holmer** for procedural drawing and a playful, audio-gear-inspired visual style. The target audience is non-technical audio/music/guitar people, not programmers.
+
+### Visual Style
+- **Audio plugin / guitar pedal aesthetic** — knobs, sliders, channel strips inspired by parametric EQs, mixers, and synth UIs (think FabFilter, Serum, Vital)
+- **Dark semi-transparent panels** over a full-background video feed — the tank is always visible
+- **Clean lineart icons** with live feedback (spectrum squiggles, pulsing fish, bouncing meters)
+- **Fun and playful** — this is a silly joke project, lean into it. Fish-themed accents welcome
+- **Shapes-drawn controls** — arcs for knobs, rounded rects for keys, procedural everything so it stays crisp
+
+### Layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│                    VIDEO / TANK                             │
+│               (full background, always visible)              │
+│                                                             │
+│  ┌──────────────┐                    ┌────────────────────┐ │
+│  │  Tracking &  │                    │   Song Settings    │ │
+│  │    Vision    │                    │                    │ │
+│  │              │                    │  Scale picker      │ │
+│  │  HSV bars    │                    │  Root note         │ │
+│  │  Knobs       │                    │  Piano keyboard    │ │
+│  │  Presets     │                    │  (clickable when   │ │
+│  │  🖌 Mask btn │                    │   Custom selected) │ │
+│  └──────────────┘                    └────────────────────┘ │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │                 Channel Strip Rack                      │ │
+│  │  ┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌─────┐ │ │
+│  │  │ Pos X ││ Pos Y ││ Speed ││ Vel X ││ Vel Y ││Size │ │ │
+│  │  │       ││       ││       ││       ││       ││     │ │ │
+│  │  │ live  ││ live  ││ live  ││ live  ││ live  ││live │ │ │
+│  │  │ meter ││ meter ││ meter ││ meter ││ meter ││metr │ │ │
+│  │  └───────┘└───────┘└───────┘└───────┘└───────┘└─────┘ │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ 🐟● 60fps │ CC20=64 NoteOn C4 v100... │ 🔇MUTE │ 🎥▾ 🎹▾ │
+│  └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Panel Groups
+
+#### Group 1+2: Tracking & Vision (left panel)
+Contains both vision tuning and tracking quality. All settings saveable/loadable as named presets.
+- **HSV picker**: horizontal gradient strips with draggable range handles (like a band-pass EQ). Hue strip = rainbow gradient, Sat strip = gray→vivid, Val strip = dark→bright. Live mask preview shows what's being captured.
+- **Morphology knobs**: erode1, dilate, erode2 — pedal-style knobs with Shapes arcs
+- **Tracking knobs**: minBlobPixels, positionSmoothing, velocitySmoothing, deadReckonDuration, maxVelocity
+- **Preset selector**: save/load named presets (captures HSV + morphology + tracking params)
+- **Mask paint toggle**: button to enter/exit exclusion mask painting mode. Painting is a modal state, not always active.
+
+#### Group 3: Song Settings (right panel)
+Global musical settings shared by all channels.
+- **Scale type picker**: dropdown or segmented selector (Major, Minor, Blues, Custom, etc.)
+- **Root note selector**: clickable note name
+- **Piano keyboard**: Shapes-drawn octave, always visible, always reflecting current scale + root note. Root note highlighted distinctly. Active scale degrees lit up. **Read-only when a preset scale is selected. Clickable toggles when Custom is selected.** This is both a control and a visualization.
+
+#### Group 4: Channel Strip Rack (bottom, wide)
+6 vertical channel strips side by side, mixer-style. Each strip shows only settings relevant to its current mode.
+
+**Always visible per strip:**
+- Channel label + live value meter (bouncing bar/dot)
+- Enabled toggle
+- CC / Note mode toggle
+- MIDI channel selector
+- Lineart waveform/spectrum squiggle animating with live output
+
+**CC mode shows:**
+- CC number
+- Input/output range (parametric EQ-style slider with live value dot)
+- Hold on lost detection toggle
+
+**Note mode shows:**
+- Octave + octave range
+- Velocity source config (Fixed value knob, or tracker field picker + range)
+- Legato toggle
+- Note order (Sequential / Random / Shuffle)
+- Live note name readout (e.g. "C4", "E5")
+
+#### Group 5: System Status Bar (bottom edge)
+Single horizontal bar across the full width.
+- **Fish detection indicator**: fish silhouette icon — solid+green (tracking), outline+orange (dead reckoning), dim+red (lost)
+- **FPS display**
+- **MIDI message log**: scrolling ticker showing recent CC/Note messages, one line default, expandable
+- **MUTE MIDI button**: kills all output instantly, all-notes-off
+- **Video input**: source selector dropdown (webcam, capture device, video file), open file button, resolution/downsample, flip H/V
+- **MIDI port**: output port dropdown, connection status
+
+### Control Types
+- **Knobs**: pedal-style, Shapes arcs showing value range, optional glow/color accent
+- **Range sliders**: parametric EQ style, horizontal bar with draggable min/max handles, live value dot
+- **Toggles**: switch-style, not checkboxes
+- **Segmented buttons**: for mode selection (CC/Note, Sequential/Random/Shuffle)
+- **Piano keys**: Shapes-drawn, white/black key layout, clickable in Custom mode
+- **HSV strips**: gradient bars with range handles
+
+### Exclusion Mask
+- Standalone feature, not part of any preset
+- Persists to `ExclusionMask.png` between sessions (current behavior)
+- Painting is a **modal toggle** accessed from the Tracking panel — enter paint mode, paint, exit
+- While in paint mode: left-click paints (exclude), right-click erases, scroll adjusts brush size
+
+### Live Feedback Philosophy
+Every control should show what's happening right now when possible:
+- Channel meters bounce with actual tracker values
+- Piano keys flash when their note is currently sounding
+- HSV strips show the live mask result
+- Fish icon reflects detection state
+- MIDI log scrolls with real output
+- Knob positions update if presets are loaded

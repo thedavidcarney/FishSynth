@@ -143,6 +143,9 @@ public class MaskPainter : MonoBehaviour
     {
         if (videoImage == null) return;
 
+        // Don't handle input if the Shapes UI consumed this frame's input
+        if (FishSynthInput.InputConsumed) return;
+
         // Scroll to adjust brush size
         float scroll = Input.mouseScrollDelta.y;
         if (scroll != 0f)

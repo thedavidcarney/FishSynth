@@ -239,7 +239,7 @@ public class YellowFishTracker : MonoBehaviour
         }
     }
 
-    private void SaveConfig()
+    public void SaveConfig()
     {
         try
         {
@@ -467,20 +467,7 @@ public class YellowFishTracker : MonoBehaviour
         if (_defaultExclusionMask != null) Destroy(_defaultExclusionMask);
     }
 
-    // ── OnGUI diagnostics ─────────────────────────────────────────────────────
-    private void OnGUI()
-    {
-        if (!Application.isEditor) return;
-        var d = Data;
-        int x = 10, y = 10, lh = 18;
-        GUI.Label(new Rect(x, y,      300, lh), $"Detected:  {d.detected}  (lost: {_lostTimer:F2}s)");
-        GUI.Label(new Rect(x, y+lh,   300, lh), $"Pos:       ({d.posX:F3}, {d.posY:F3})");
-        GUI.Label(new Rect(x, y+lh*2, 300, lh), $"Vel:       ({d.velX:F3}, {d.velY:F3})");
-        GUI.Label(new Rect(x, y+lh*3, 300, lh), $"Speed:     {d.velocityMagnitude:F3}");
-        GUI.Label(new Rect(x, y+lh*4, 300, lh), $"Size:      {d.size:F3}");
-        GUI.Label(new Rect(x, y+lh*5, 300, lh), $"Pixels:    {d.blobPixelCount}");
-        GUI.Label(new Rect(x, y+lh*6, 300, lh), $"BBox:      ({d.bboxMinX:F2},{d.bboxMinY:F2}) → ({d.bboxMaxX:F2},{d.bboxMaxY:F2})");
-    }
+    // OnGUI diagnostics removed — FishSynth UI replaces this
 }
 
 /// <summary>

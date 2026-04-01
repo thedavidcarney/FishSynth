@@ -243,6 +243,402 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1728, y: 972}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &500000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 500000002}
+  - component: {fileID: 500000003}
+  - component: {fileID: 500000004}
+  - component: {fileID: 500000005}
+  - component: {fileID: 500000006}
+  - component: {fileID: 500000007}
+  m_Layer: 5
+  m_Name: ShapesOverlay
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &500000002
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0, y: 0, z: 0}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 500100002}
+  - {fileID: 500200002}
+  - {fileID: 500300002}
+  - {fileID: 500400002}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0, y: 0}
+--- !u!223 &500000003
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000001}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 1
+  m_Camera: {fileID: 963194227}
+  m_PlaneDistance: 1
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 0
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 100
+  m_TargetDisplay: 0
+--- !u!114 &500000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_UiScaleMode: 1
+  m_ReferencePixelsPerUnit: 100
+  m_ScaleFactor: 1
+  m_ReferenceResolution: {x: 1920, y: 1080}
+  m_ScreenMatchMode: 0
+  m_MatchWidthOrHeight: 0.5
+  m_PhysicalUnit: 3
+  m_FallbackScreenDPI: 96
+  m_DefaultSpriteDPI: 96
+  m_DynamicPixelsPerUnit: 1
+  m_PresetInfoIsWorld: 0
+--- !u!114 &500000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d0ff4334353f41f3b26179e7838d677, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  useCullingMasks: 0
+  tracker: {fileID: 1031224874}
+  midiOutput: {fileID: 1031224873}
+  videoInput: {fileID: 619221143}
+  panelBackground: {r: 0.05, g: 0.07, b: 0.1, a: 0.82}
+  panelBorder: {r: 0.3, g: 0.4, b: 0.5, a: 0.6}
+  accent: {r: 0.2, g: 0.8, b: 1, a: 1}
+  accentNote: {r: 1, g: 0.6, b: 0.2, a: 1}
+  textColor: {r: 0.9, g: 0.92, b: 0.95, a: 1}
+  textDim: {r: 0.5, g: 0.55, b: 0.6, a: 1}
+  statusGood: {r: 0.2, g: 0.9, b: 0.4, a: 1}
+  statusWarn: {r: 1, g: 0.7, b: 0.15, a: 1}
+  statusBad: {r: 1, g: 0.25, b: 0.2, a: 1}
+  cornerRadius: 8
+  borderThickness: 1.5
+  fontScale: 12
+  font: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  midiMuted: 0
+  panelsVisible: 1
+  paintModeActive: 0
+--- !u!114 &500000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c841f330ac8b6441381c5e9b4950ef52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fishSynthUI: {fileID: 500000005}
+  tracker: {fileID: 1031224874}
+  midiOutput: {fileID: 1031224873}
+  videoInput: {fileID: 619221143}
+  trackingPanel: {fileID: 500100003}
+  songPanel: {fileID: 500200003}
+  channelPanel: {fileID: 500300003}
+  statusBarPanel: {fileID: 500400003}
+--- !u!114 &500000007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a95ace0b5759f44d5ba9b8806289601e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ui: {fileID: 500000005}
+  layout: {fileID: 500000006}
+--- !u!1 &500100001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 500100002}
+  - component: {fileID: 500100003}
+  m_Layer: 5
+  m_Name: TrackingPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &500100002
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500100001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 500000002}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 168.5, y: 186.59998}
+  m_SizeDelta: {x: 320, y: -381.20004}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &500100003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500100001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c37743902b96543b485a230195cc7b52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  currentPresetName: Default
+  padding: 14
+  headerFontSize: 16
+  labelFontSize: 10
+  knobSize: 52
+  knobLabelFontSize: 9
+  knobValueFontSize: 9
+  stripHeight: 28
+  satValStripHeight: 22
+  stripGap: 8
+  sectionGap: 16
+  maskButtonHeight: 36
+--- !u!1 &500200001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 500200002}
+  - component: {fileID: 500200003}
+  m_Layer: 5
+  m_Name: SongSettingsPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &500200002
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500200001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 500000002}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -168.30005, y: 388.95}
+  m_SizeDelta: {x: 320, y: -785.9}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &500200003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500200001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0690dca217ad5445a9e6133ac7611097, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  padding: 14
+  headerFontSize: 16
+  labelFontSize: 11
+  rootNameFontSize: 22
+  scaleNameFontSize: 16
+  dotRadius: 4.5
+  dotRadiusActive: 7
+  keyboardHeight: 120
+  dotNameFontSize: 7
+--- !u!1 &500300001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 500300002}
+  - component: {fileID: 500300003}
+  m_Layer: 5
+  m_Name: ChannelStripPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &500300002
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500300001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 500000002}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: 0, y: 207.90002}
+  m_SizeDelta: {x: -16, y: 328.4}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &500300003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500300001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38b363131776b4d3aac32638e5f58952, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stripPadding: 14
+  stripGap: 6
+  meterHeightRatio: 0.28
+  labelFontSize: 13
+  modeFontSize: 11
+  settingFontSize: 10
+  ccNumFontSize: 18
+  noteNameFontSize: 18
+  channelFontSize: 10
+--- !u!1 &500400001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 500400002}
+  - component: {fileID: 500400003}
+  m_Layer: 5
+  m_Name: StatusBarPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &500400002
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500400001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 500000002}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: 0, y: 24}
+  m_SizeDelta: {x: -16, y: 32}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &500400003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500400001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 041a5cff7be2647269228e5e35cadf13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  padding: 8
+  separatorInset: 6
+  separatorThickness: 1
+  fishIconRadius: 5
+  fishIconOffset: 8
+  fpsWidth: 50
+  fpsFontSize: 13
+  logFontSize: 13
+  logMaxEntries: 6
+  muteButtonWidth: 60
+  muteButtonInset: 4
+  muteFontSize: 11
+  rightSectionWidth: 220
+  videoSectionOffset: 140
+  midiSectionOffset: 60
+  iconFontSize: 12
+  portLabelFontSize: 12
+  portTruncateLength: 10
 --- !u!1 &619221141
 GameObject:
   m_ObjectHideFlags: 0
@@ -655,7 +1051,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tracker: {fileID: 1031224874}
+  statusBar: {fileID: 0}
+  synthUI: {fileID: 0}
   midiPortName: loopMIDI Port Unity
+  rootNote: 0
+  scaleType: 7
+  customC: 1
+  customCs: 0
+  customD: 1
+  customDs: 0
+  customE: 1
+  customF: 1
+  customFs: 0
+  customG: 1
+  customGs: 0
+  customA: 1
+  customAs: 0
+  customB: 1
   posX:
     label: Pos X
     enabled: 1
@@ -667,10 +1079,7 @@ MonoBehaviour:
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
-    pitchSource: 0
-    rootNote: 4
     rootOctave: 2
-    scaleType: 3
     octaveRange: 5
     velocitySource: 0
     fixedVelocity: 100
@@ -678,6 +1087,7 @@ MonoBehaviour:
     velocityInputMax: 3
     velocityTrackerField: 2
     legato: 1
+    noteOrder: 1
   posY:
     label: Pos Y
     enabled: 1
@@ -689,10 +1099,7 @@ MonoBehaviour:
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
-    pitchSource: 0
-    rootNote: 0
     rootOctave: 4
-    scaleType: 1
     octaveRange: 1
     velocitySource: 0
     fixedVelocity: 100
@@ -700,6 +1107,7 @@ MonoBehaviour:
     velocityInputMax: 3
     velocityTrackerField: 2
     legato: 0
+    noteOrder: 0
   velocityMag:
     label: Speed
     enabled: 1
@@ -711,10 +1119,7 @@ MonoBehaviour:
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
-    pitchSource: 0
-    rootNote: 0
     rootOctave: 4
-    scaleType: 1
     octaveRange: 2
     velocitySource: 0
     fixedVelocity: 100
@@ -722,6 +1127,7 @@ MonoBehaviour:
     velocityInputMax: 3
     velocityTrackerField: 2
     legato: 0
+    noteOrder: 0
   velX:
     label: Vel X
     enabled: 1
@@ -733,10 +1139,7 @@ MonoBehaviour:
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
-    pitchSource: 0
-    rootNote: 0
     rootOctave: 4
-    scaleType: 1
     octaveRange: 2
     velocitySource: 0
     fixedVelocity: 100
@@ -744,6 +1147,7 @@ MonoBehaviour:
     velocityInputMax: 3
     velocityTrackerField: 2
     legato: 0
+    noteOrder: 0
   velY:
     label: Vel Y
     enabled: 1
@@ -755,10 +1159,7 @@ MonoBehaviour:
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
-    pitchSource: 0
-    rootNote: 0
     rootOctave: 4
-    scaleType: 1
     octaveRange: 2
     velocitySource: 0
     fixedVelocity: 100
@@ -766,6 +1167,7 @@ MonoBehaviour:
     velocityInputMax: 3
     velocityTrackerField: 2
     legato: 0
+    noteOrder: 0
   size:
     label: Size
     enabled: 1
@@ -777,10 +1179,7 @@ MonoBehaviour:
     outputMin: 0
     outputMax: 127
     holdOnLostDetection: 1
-    pitchSource: 0
-    rootNote: 0
     rootOctave: 4
-    scaleType: 1
     octaveRange: 2
     velocitySource: 0
     fixedVelocity: 100
@@ -788,7 +1187,8 @@ MonoBehaviour:
     velocityInputMax: 3
     velocityTrackerField: 2
     legato: 0
-  debugLogging: 1
+    noteOrder: 0
+  debugLogging: 0
 --- !u!114 &1031224874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1081,9 +1481,9 @@ Canvas:
   m_GameObject: {fileID: 1482499026}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
-  m_Camera: {fileID: 0}
-  m_PlaneDistance: 100
+  m_RenderMode: 1
+  m_Camera: {fileID: 963194227}
+  m_PlaneDistance: 10
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
   m_OverrideSorting: 0
@@ -1346,3 +1746,4 @@ SceneRoots:
   - {fileID: 1824148381}
   - {fileID: 1482499031}
   - {fileID: 242986483}
+  - {fileID: 500000002}

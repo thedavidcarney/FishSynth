@@ -20,9 +20,36 @@ public class FishMidiOutput : MonoBehaviour
     [Header("References")]
     public YellowFishTracker tracker;
 
+    [Tooltip("Optional status bar for MIDI log output.")]
+    public StatusBarPanel statusBar;
+
+    [Tooltip("Optional UI root for mute state.")]
+    public FishSynthUI synthUI;
+
     [Header("MIDI Device")]
     [Tooltip("Partial name match of the MIDI output port to open. Leave empty to use port 0.")]
     public string midiPortName = "";
+
+    [Header("Note Mode (shared)")]
+    [Tooltip("Root note of the scale.")]
+    public RootNote rootNote = RootNote.C;
+
+    [Tooltip("Scale type to quantize pitch to.")]
+    public ScaleType scaleType = ScaleType.Major;
+
+    [Header("Custom Scale (used when scaleType = Custom)")]
+    public bool customC  = true;
+    public bool customCs = false;
+    public bool customD  = true;
+    public bool customDs = false;
+    public bool customE  = true;
+    public bool customF  = true;
+    public bool customFs = false;
+    public bool customG  = true;
+    public bool customGs = false;
+    public bool customA  = true;
+    public bool customAs = false;
+    public bool customB  = true;
 
     [Header("Channel Mappings")]
     public MidiChannelMapping posX        = new MidiChannelMapping { label = "Pos X",  ccNumber = 20, midiChannel = 1, inputMin = 0f,   inputMax = 1f   };
@@ -86,17 +113,14 @@ public class FishMidiOutput : MonoBehaviour
 
         FishTrackData d = tracker.Data;
 
-        ProcessMapping(posX,        GetTrackerValue(posX.pitchSource,        d), d);
-        ProcessMapping(posY,        GetTrackerValue(posY.pitchSource,        d), d);
-        ProcessMapping(velocityMag, GetTrackerValue(velocityMag.pitchSource, d), d);
-        ProcessMapping(velX,        GetTrackerValue(velX.pitchSource,        d), d);
-        ProcessMapping(velY,        GetTrackerValue(velY.pitchSource,        d), d);
-        ProcessMapping(size,        GetTrackerValue(size.pitchSource,        d), d);
+        ProcessMapping(posX,        d.posX,              d);
+        ProcessMapping(posY,        d.posY,              d);
+        ProcessMapping(velocityMag, d.velocityMagnitude, d);
+        ProcessMapping(velX,        d.velX,              d);
+        ProcessMapping(velY,        d.velY,              d);
+        ProcessMapping(size,        d.size,              d);
     }
 
-    // Returns the raw tracker value for whichever field a mapping uses as its source.
-    // In CC mode pitchSource is irrelevant, but we still pass the mapping's own
-    // "natural" value via the label so CC behaviour is unchanged.
     private float GetTrackerValue(TrackerField field, FishTrackData d)
     {
         switch (field)
@@ -111,8 +135,6 @@ public class FishMidiOutput : MonoBehaviour
         }
     }
 
-    // Returns the "natural" value for a mapping based on its label —
-    // used so CC mode always reads the correct field regardless of pitchSource.
     private float GetNaturalValue(MidiChannelMapping mapping, FishTrackData d)
     {
         switch (mapping.label)
@@ -165,9 +187,11 @@ public class FishMidiOutput : MonoBehaviour
         }
         _lastSentCC[key] = ccVal;
 
+        if (synthUI != null && synthUI.midiMuted) return;
         byte status = (byte)(0xB0 | ((mapping.midiChannel - 1) & 0x0F));
         if (debugLogging) Debug.Log($"[FishMidiOutput] SENDING CC{mapping.ccNumber} = {ccVal} (raw={rawValue:F3}) ch{mapping.midiChannel}");
         _midiOut.SendMessage(new ReadOnlySpan<byte>(new byte[] { status, (byte)mapping.ccNumber, (byte)ccVal }));
+        if (statusBar != null) statusBar.LogMidi($"CC{mapping.ccNumber}={ccVal}");
     }
 
     // ── Note mode ─────────────────────────────────────────────────────────────
@@ -186,8 +210,10 @@ public class FishMidiOutput : MonoBehaviour
             return;
         }
 
-        int[] scale     = MidiScales.GetIntervals(mapping.scaleType);
-        int rootMidi    = NoteNameToMidi(mapping.rootNote, mapping.rootOctave);
+        int[] scale     = scaleType == ScaleType.Custom
+            ? MidiScales.GetCustomIntervals(this)
+            : MidiScales.GetIntervals(scaleType);
+        int rootMidi    = NoteNameToMidi(rootNote, mapping.rootOctave);
         int totalNotes  = scale.Length * mapping.octaveRange;
 
         // Map input range → scale index (zone)
@@ -211,9 +237,9 @@ public class FishMidiOutput : MonoBehaviour
         {
             // Rebuild shuffle map if settings changed or not yet built
             if (mapping.shuffleMap == null || mapping.shuffleMap.Length != totalNotes
-                || mapping.shuffleScale != mapping.scaleType
+                || mapping.shuffleScale != scaleType
                 || mapping.shuffleOctaveRange != mapping.octaveRange
-                || mapping.shuffleRootNote != mapping.rootNote
+                || mapping.shuffleRootNote != rootNote
                 || mapping.shuffleRootOctave != mapping.rootOctave)
             {
                 BuildShuffleMap(mapping, totalNotes);
@@ -257,18 +283,32 @@ public class FishMidiOutput : MonoBehaviour
         mapping.currentNote = noteNumber;
     }
 
+    private static readonly string[] _noteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
     private void SendNoteOn(MidiChannelMapping mapping, int note, int velocity)
     {
+        if (synthUI != null && synthUI.midiMuted) return;
         byte status = (byte)(0x90 | ((mapping.midiChannel - 1) & 0x0F));
         if (debugLogging) Debug.Log($"[FishMidiOutput] NOTE ON  {note} vel={velocity} ch{mapping.midiChannel}");
         _midiOut.SendMessage(new ReadOnlySpan<byte>(new byte[] { status, (byte)note, (byte)velocity }));
+        if (statusBar != null)
+        {
+            string name = _noteNames[note % 12] + ((note / 12) - 1);
+            statusBar.LogMidi($"On {name} v{velocity}");
+        }
     }
 
     private void SendNoteOff(MidiChannelMapping mapping, int note)
     {
+        // Note-offs always go through — never mute them or we get stuck notes
         byte status = (byte)(0x80 | ((mapping.midiChannel - 1) & 0x0F));
         if (debugLogging) Debug.Log($"[FishMidiOutput] NOTE OFF {note} ch{mapping.midiChannel}");
         _midiOut.SendMessage(new ReadOnlySpan<byte>(new byte[] { status, (byte)note, 0 }));
+        if (statusBar != null)
+        {
+            string name = _noteNames[note % 12] + ((note / 12) - 1);
+            statusBar.LogMidi($"Off {name}");
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -296,9 +336,9 @@ public class FishMidiOutput : MonoBehaviour
         }
 
         // Cache the params this shuffle was built for
-        mapping.shuffleScale = mapping.scaleType;
+        mapping.shuffleScale = scaleType;
         mapping.shuffleOctaveRange = mapping.octaveRange;
-        mapping.shuffleRootNote = mapping.rootNote;
+        mapping.shuffleRootNote = rootNote;
         mapping.shuffleRootOctave = mapping.rootOctave;
 
         if (debugLogging) Debug.Log($"[FishMidiOutput] Built shuffle map ({totalNotes} notes)");
@@ -375,7 +415,8 @@ public enum ScaleType
     Lydian,
     Mixolydian,
     WholeTone,
-    Diminished
+    Diminished,
+    Custom
 }
 
 public enum TrackerField
@@ -430,8 +471,29 @@ public static class MidiScales
             case ScaleType.Mixolydian:       return new[] { 0,2,4,5,7,9,10 };
             case ScaleType.WholeTone:        return new[] { 0,2,4,6,8,10 };
             case ScaleType.Diminished:       return new[] { 0,2,3,5,6,8,9,11 };
+            case ScaleType.Custom:           return new[] { 0,2,4,5,7,9,11 }; // fallback; use GetCustomIntervals
             default:                         return new[] { 0,2,4,5,7,9,11 };
         }
+    }
+
+    public static int[] GetCustomIntervals(FishMidiOutput output)
+    {
+        var list = new System.Collections.Generic.List<int>();
+        if (output.customC)  list.Add(0);
+        if (output.customCs) list.Add(1);
+        if (output.customD)  list.Add(2);
+        if (output.customDs) list.Add(3);
+        if (output.customE)  list.Add(4);
+        if (output.customF)  list.Add(5);
+        if (output.customFs) list.Add(6);
+        if (output.customG)  list.Add(7);
+        if (output.customGs) list.Add(8);
+        if (output.customA)  list.Add(9);
+        if (output.customAs) list.Add(10);
+        if (output.customB)  list.Add(11);
+        // At least one note required — default to root if nothing toggled
+        if (list.Count == 0) list.Add(0);
+        return list.ToArray();
     }
 }
 
@@ -481,18 +543,9 @@ public class MidiChannelMapping
     // ── Note mode fields ──────────────────────────────────────────────────────
 
     [Header("Note Mode")]
-    [Tooltip("Which tracker field drives pitch (used in Note mode).")]
-    public TrackerField pitchSource = TrackerField.PosX;
-
-    [Tooltip("Root note of the scale.")]
-    public RootNote rootNote = RootNote.C;
-
     [Tooltip("Octave of the root note (4 = middle C octave).")]
     [Range(0, 8)]
     public int rootOctave = 4;
-
-    [Tooltip("Scale type to quantize pitch to.")]
-    public ScaleType scaleType = ScaleType.Major;
 
     [Tooltip("Number of octaves the input range spans.")]
     [Range(1, 6)]

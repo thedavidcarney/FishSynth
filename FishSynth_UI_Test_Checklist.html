@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FishSynth UI Test Checklist</title>
+<style>
+  @media print {
+    body { font-size: 11pt; }
+    .no-print { display: none; }
+    h1 { font-size: 18pt; }
+    h2 { font-size: 14pt; page-break-after: avoid; }
+    h3 { font-size: 12pt; page-break-after: avoid; }
+    ul { page-break-inside: avoid; }
+  }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+    max-width: 800px;
+    margin: 2em auto;
+    padding: 0 1em;
+    color: #222;
+    line-height: 1.5;
+  }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 0.3em; }
+  h2 { color: #1a6bb5; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+  h3 { color: #555; margin-top: 1em; }
+  ul { list-style: none; padding-left: 0; }
+  li {
+    padding: 4px 0 4px 28px;
+    position: relative;
+    border-bottom: 1px dotted #ddd;
+  }
+  li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #888;
+    border-radius: 3px;
+    background: #fff;
+  }
+  .section-note {
+    background: #f0f6fc;
+    border-left: 4px solid #1a6bb5;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.9em;
+    color: #444;
+  }
+  .new-tag {
+    display: inline-block;
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-size: 0.75em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 6px;
+  }
+  .fix-tag {
+    display: inline-block;
+    background: #fff3e0;
+    color: #e65100;
+    font-size: 0.75em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>FishSynth UI Test Checklist</h1>
+<p><strong>Date:</strong> ______________ &nbsp;&nbsp; <strong>Build:</strong> ______________ &nbsp;&nbsp; <strong>Tester:</strong> ______________</p>
+
+<!-- ======================================================= -->
+<h2>1. Global / Escape Key</h2>
+
+<ul>
+  <li>Press <strong>Escape</strong> &mdash; all panels hide, only tank video visible <span class="new-tag">NEW</span></li>
+  <li>Press <strong>Escape</strong> again &mdash; all panels reappear</li>
+  <li>Enter Paint Mode, then press <strong>Escape</strong> &mdash; exits paint mode first (panels stay visible) <span class="new-tag">NEW</span></li>
+  <li>Press <strong>Escape</strong> again &mdash; now panels hide</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>2. Status Bar (bottom edge)</h2>
+
+<ul>
+  <li><strong>Fish detection icon</strong> &mdash; green when tracking, orange when dead-reckoning, red when lost</li>
+  <li><strong>FPS counter</strong> &mdash; updates every ~0.5s</li>
+  <li><strong>MIDI log ticker</strong> &mdash; scrolls recent CC/Note messages as fish moves</li>
+  <li><strong>MUTE button</strong> &mdash; click toggles MUTE/MUTED, red background when muted</li>
+  <li>While muted: no CC or Note-On messages sent</li>
+  <li>While muted: Note-Off still sends (no stuck notes)</li>
+  <li><strong>Video source label</strong> &mdash; shows "Video" when videoInput assigned</li>
+  <li><strong>MIDI port label</strong> &mdash; shows current port name</li>
+  <li><strong>MIDI port click-to-edit</strong> &mdash; click label, type new name <span class="new-tag">NEW</span></li>
+  <li>Press <strong>Enter</strong> to commit new port name <span class="new-tag">NEW</span></li>
+  <li>Press <strong>Escape</strong> to cancel edit <span class="new-tag">NEW</span></li>
+  <li>Click elsewhere while editing to commit <span class="new-tag">NEW</span></li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>3. Channel Strip Rack (6 strips)</h2>
+
+<h3>3a. General (all strips)</h3>
+<ul>
+  <li><strong>Strip labels</strong> &mdash; Pos X, Pos Y, Speed, Vel X, Vel Y, Size at top</li>
+  <li><strong>Enable dot</strong> (top-left) &mdash; click toggles green/gray</li>
+  <li>Disabled strip shows dimmed label only</li>
+  <li><strong>Live meters</strong> &mdash; bounce in real-time with fish movement</li>
+  <li><strong>CC/NOTE mode toggle</strong> &mdash; click switches, cyan=CC, orange=Note</li>
+  <li><strong>MIDI channel</strong> at bottom (e.g. "ch1")</li>
+  <li>MIDI channel <strong>scroll wheel</strong> cycles 1-16</li>
+  <li>MIDI channel <strong>click opens drop-up</strong> with 16 options <span class="new-tag">NEW</span></li>
+  <li>Click option to select, click elsewhere to close <span class="new-tag">NEW</span></li>
+</ul>
+
+<h3>3b. CC Mode</h3>
+<ul>
+  <li><strong>CC number</strong> shown large (e.g. "CC20")</li>
+  <li>CC number <strong>scroll wheel</strong> changes 0-127</li>
+  <li><strong>Input range</strong> &mdash; shows values (e.g. "in: 0.0-1.0")</li>
+  <li><strong>Output range</strong> &mdash; shows values (e.g. "out: 0-127")</li>
+  <li><strong>"Hold On Lost Tracking"</strong> toggle <span class="fix-tag">FIX</span></li>
+  <li>Hold toggle click works, highlight changes</li>
+</ul>
+
+<h3>3c. Note Mode</h3>
+<ul>
+  <li><strong>Live note name</strong> (e.g. "C4") updating as fish moves</li>
+  <li>Shows "---" when fish lost</li>
+  <li><strong>"Starting Octave"</strong> label + value <span class="fix-tag">FIX</span></li>
+  <li>Starting Octave scroll wheel 0-8</li>
+  <li><strong>"Octave Range"</strong> label + value <span class="fix-tag">FIX</span></li>
+  <li>Octave Range scroll wheel 1-6</li>
+  <li><strong>Note order full names</strong> ("Sequential", "Random", "Shuffle") <span class="fix-tag">FIX</span></li>
+  <li>Note order <strong>click opens dropdown</strong> <span class="new-tag">NEW</span></li>
+  <li>Note order <strong>scroll wheel</strong> cycles <span class="new-tag">NEW</span></li>
+  <li><strong>LEGATO</strong> toggle works</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>4. Song Settings Panel (right side)</h2>
+
+<ul>
+  <li><strong>"Song Settings"</strong> header visible</li>
+  <li><strong>Root note name</strong> &mdash; large orange text</li>
+  <li><strong>All 12 note names</strong> visible under dots <span class="fix-tag">FIX</span></li>
+  <li><strong>Root selector dots</strong> &mdash; current root larger/orange</li>
+  <li>Click dot &mdash; root changes, keyboard updates</li>
+  <li><strong>Scale name</strong> visible (e.g. "Major")</li>
+  <li>No &lt; &gt; arrows <span class="fix-tag">FIX</span></li>
+  <li><strong>Scale scroll wheel</strong> cycles all 15 types <span class="new-tag">NEW</span></li>
+  <li><strong>Scale click opens dropdown</strong> <span class="new-tag">NEW</span></li>
+  <li>Click scale to select, click elsewhere to close <span class="new-tag">NEW</span></li>
+</ul>
+
+<h3>4a. Piano Keyboard</h3>
+<ul>
+  <li>7 white + 5 black keys drawn</li>
+  <li><strong>Active notes are orange</strong> <span class="fix-tag">FIX</span></li>
+  <li>Inactive white keys are white/light</li>
+  <li>Inactive black keys are dark</li>
+  <li>No special root note color <span class="fix-tag">FIX</span></li>
+  <li>Note names on white keys</li>
+  <li><strong>A# positioned correctly</strong> (not offset) <span class="fix-tag">FIX</span></li>
+  <li>Root change &mdash; keyboard recolors instantly</li>
+  <li>Scale change &mdash; keyboard recolors instantly</li>
+  <li>Non-Custom scale: keys are read-only</li>
+  <li>Custom scale: "TAP KEYS TO TOGGLE" label</li>
+  <li>Custom: click key toggles orange/off</li>
+  <li>Custom: at least one note always active</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>5. Tracking & Vision Panel (left side)</h2>
+
+<h3>5a. General</h3>
+<ul>
+  <li><strong>"Tracking"</strong> header visible</li>
+  <li><strong>Preset</strong> shows "Default" (placeholder)</li>
+</ul>
+
+<h3>5b. HSV Color Strips</h3>
+<ul>
+  <li><strong>Hue strip</strong> &mdash; rainbow gradient, "H" label</li>
+  <li>Drag min handle &mdash; hueMin changes</li>
+  <li>Drag max handle &mdash; hueMax changes</li>
+  <li>Handles can't cross</li>
+  <li><strong>Saturation strip</strong> &mdash; gray-to-vivid, "S" label</li>
+  <li>Drag handles for satMin/satMax</li>
+  <li><strong>Value strip</strong> &mdash; dark-to-bright, "V" label</li>
+  <li>Drag handles for valMin/valMax</li>
+  <li>Releasing saves config</li>
+</ul>
+
+<h3>5c. Morphology Knobs ("CLEANUP")</h3>
+<ul>
+  <li>3 knobs: <strong>"Erode 1"</strong>, <strong>"Dilate"</strong>, <strong>"Erode 2"</strong> <span class="fix-tag">FIX</span></li>
+  <li>Arc indicator + numeric readout</li>
+  <li>Drag up/down to adjust</li>
+  <li>Scroll wheel fine-tunes</li>
+  <li>Releasing saves config</li>
+</ul>
+
+<h3>5d. Tracking Knobs ("TRACKING")</h3>
+<ul>
+  <li>4 knobs in <strong>centered 2x2 grid</strong> <span class="fix-tag">FIX</span></li>
+  <li>Row 1: <strong>"Sensitivity"</strong>, <strong>"Position Smooth"</strong> <span class="fix-tag">FIX</span></li>
+  <li>Row 2: <strong>"Velocity Smooth"</strong>, <strong>"Dead Reckon"</strong> <span class="fix-tag">FIX</span></li>
+  <li>All draggable + scroll fine-tune</li>
+</ul>
+
+<h3>5e. Paint Exclusion Mask</h3>
+<ul>
+  <li><strong>"Paint Exclusion Mask"</strong> button visible</li>
+  <li>Click &mdash; enters paint mode <span class="fix-tag">FIX</span></li>
+  <li>All other panels <strong>hidden</strong> in paint mode <span class="new-tag">NEW</span></li>
+  <li>Help text: left click paint, right click erase, scroll brush size <span class="new-tag">NEW</span></li>
+  <li><strong>"Exit Paint Mode"</strong> button works <span class="new-tag">NEW</span></li>
+  <li>Left-click paints red exclusion</li>
+  <li>Right-click erases</li>
+  <li>Scroll adjusts brush size</li>
+  <li>UI clicks do NOT paint through <span class="fix-tag">FIX</span></li>
+  <li>Exiting paint mode restores all panels</li>
+  <li>Mask persists between sessions</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>6. Layout Variables (Inspector)</h2>
+<div class="section-note">Each panel exposes layout fields in Inspector. Changing them in Play mode should affect the UI immediately.</div>
+<ul>
+  <li><strong>ChannelStripPanel</strong> &mdash; 9 layout fields visible <span class="new-tag">NEW</span></li>
+  <li><strong>SongSettingsPanel</strong> &mdash; 9 layout fields visible <span class="new-tag">NEW</span></li>
+  <li><strong>TrackingPanel</strong> &mdash; 11 layout fields visible <span class="new-tag">NEW</span></li>
+  <li>Changing a value immediately affects drawing</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>7. Live Feedback</h2>
+<ul>
+  <li>Channel meters bounce with tracker values</li>
+  <li>Fish icon color follows tracking state</li>
+  <li>Note name readout updates live</li>
+  <li>MIDI log shows sent messages</li>
+  <li>HSV handles reflect loaded config</li>
+  <li>Knob arcs reflect loaded config</li>
+  <li>Piano keyboard updates on root/scale change</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2>8. Known Gaps (not yet implemented)</h2>
+<div class="section-note">Placeholders or future work. Do not file bugs for these.</div>
+<ul>
+  <li>Input range click-to-edit</li>
+  <li>Output range slider with live feedback</li>
+  <li>Preset save/load</li>
+  <li>Video source picker</li>
+  <li>MIDI port connection status</li>
+  <li>Channel waveform/spectrum animation</li>
+</ul>
+
+<h2>Notes</h2>
+<div style="border: 1px solid #ccc; min-height: 150px; padding: 12px; margin-top: 8px;">
+&nbsp;
+</div>
+
+</body>
+</html>
