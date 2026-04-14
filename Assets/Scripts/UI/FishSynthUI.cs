@@ -17,6 +17,9 @@ public class FishSynthUI : ImmediateModeCanvas
     public YellowFishTracker tracker;
     public FishMidiOutput midiOutput;
     public VideoFileInput videoInput;
+    public VideoSourceManager videoSourceManager;
+    public MaskPainter maskPainter;
+    public FishDebugCanvas debugCanvas;
 
     [Header("Style")]
     [Tooltip("Background color for panels (semi-transparent dark).")]
@@ -88,11 +91,12 @@ public class FishSynthUI : ImmediateModeCanvas
         else if (Time.frameCount % 300 == 0)
             Debug.LogWarning("[FishSynthUI] No TMP font found! Text will not render.");
 
-        // If panels are hidden, don't draw anything
-        if (!panelsVisible)
+        // If panels are hidden, don't draw anything (unless paint mode — show paint bar)
+        if (!panelsVisible && !paintModeActive)
             return;
 
         // Draw all child ImmediateModePanel objects
+        // (individual panels check paintModeActive to hide/show themselves)
         base.DrawPanels();
     }
 

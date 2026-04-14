@@ -104,7 +104,7 @@ public class YellowFishTracker : MonoBehaviour
     // ── Serializable config ───────────────────────────────────────────────────
 
     [System.Serializable]
-    private class TrackerConfig
+    public class TrackerConfig
     {
         public float hueMin           = 0.10f;
         public float hueMax           = 0.20f;
@@ -237,6 +237,33 @@ public class YellowFishTracker : MonoBehaviour
         {
             Debug.LogError($"[YellowFishTracker] Failed to load config: {e.Message}");
         }
+    }
+
+    /// <summary>Snapshot current tracking values into a config object.</summary>
+    public TrackerConfig ToConfig()
+    {
+        return new TrackerConfig
+        {
+            hueMin = hueMin, hueMax = hueMax,
+            satMin = satMin, satMax = satMax,
+            valMin = valMin, valMax = valMax,
+            erode1Radius = erode1Radius, dilateRadius = dilateRadius, erode2Radius = erode2Radius,
+            minBlobPixels = minBlobPixels,
+            positionSmoothing = positionSmoothing, velocitySmoothing = velocitySmoothing,
+            deadReckonDuration = deadReckonDuration, maxVelocity = maxVelocity
+        };
+    }
+
+    /// <summary>Apply a config object to live tracking values.</summary>
+    public void FromConfig(TrackerConfig cfg)
+    {
+        hueMin = cfg.hueMin; hueMax = cfg.hueMax;
+        satMin = cfg.satMin; satMax = cfg.satMax;
+        valMin = cfg.valMin; valMax = cfg.valMax;
+        erode1Radius = cfg.erode1Radius; dilateRadius = cfg.dilateRadius; erode2Radius = cfg.erode2Radius;
+        minBlobPixels = cfg.minBlobPixels;
+        positionSmoothing = cfg.positionSmoothing; velocitySmoothing = cfg.velocitySmoothing;
+        deadReckonDuration = cfg.deadReckonDuration; maxVelocity = cfg.maxVelocity;
     }
 
     public void SaveConfig()

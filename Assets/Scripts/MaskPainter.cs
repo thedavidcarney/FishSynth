@@ -20,6 +20,10 @@ public class MaskPainter : MonoBehaviour
     [Tooltip("The video RawImage used for coordinate mapping (from FishDebugCanvas).")]
     public RawImage videoImage;
 
+    [Tooltip("When true, painting input is processed. Set by paint mode toggle.")]
+    [HideInInspector]
+    public bool paintingEnabled;
+
     [Header("Brush")]
     [Tooltip("Brush radius in mask pixels (1920x1080 space).")]
     [Range(5, 200)]
@@ -43,24 +47,45 @@ public class MaskPainter : MonoBehaviour
 
     // ── Internal ─────────────────────────────────────────────────────────────────
 
-    private Texture2D _maskTex;       // white=allow, black=exclude → passed to compute
-    private Texture2D _overlayTex;    // transparent=allow, red=exclude → displayed
+    private Texture2D _maskTex;
+    private Texture2D _overlayTex;
     private Color32[] _maskPixels;
     private Color32[] _overlayPixels;
 
     private RawImage _overlayImage;
-    private Texture2D _cursorTex;
-    private int _cursorTexSize;
 
     private bool  _dirty;
     private float _saveTimer;
 
+    private bool _initialized;
+
     private static string MaskPath =>
         Path.Combine(Application.streamingAssetsPath, "ExclusionMask.png");
 
+    /// <summary>Screen-space brush diameter for cursor drawing (updated each frame).</summary>
+    public float ScreenBrushDiameter { get; private set; }
+
+    /// <summary>Whether the mouse is currently over the video area.</summary>
+    public bool MouseOverVideo { get; private set; }
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-    private void Start()
+    private void OnEnable()
+    {
+        if (!_initialized)
+            Initialize();
+
+        if (_overlayImage != null)
+            _overlayImage.enabled = true;
+    }
+
+    private void OnDisable()
+    {
+        // Keep overlay visible so exclusion mask is always shown
+        MouseOverVideo = false;
+    }
+
+    private void Initialize()
     {
         _maskTex    = new Texture2D(MaskWidth, MaskHeight, TextureFormat.RGBA32, false);
         _overlayTex = new Texture2D(MaskWidth, MaskHeight, TextureFormat.RGBA32, false);
@@ -68,7 +93,6 @@ public class MaskPainter : MonoBehaviour
         _maskPixels    = new Color32[MaskWidth * MaskHeight];
         _overlayPixels = new Color32[MaskWidth * MaskHeight];
 
-        // Default: all allowed
         Color32 overlayAllow = new Color32(0, 0, 0, 0);
         for (int i = 0; i < _maskPixels.Length; i++)
         {
@@ -80,10 +104,12 @@ public class MaskPainter : MonoBehaviour
         ApplyTextures();
         CreateOverlay();
         PassMaskToTracker();
+        _initialized = true;
     }
 
     private void Update()
     {
+        UpdateScreenBrushSize();
         HandleInput();
 
         if (_dirty)
@@ -96,17 +122,17 @@ public class MaskPainter : MonoBehaviour
             }
         }
 
-        // Keep overlay aspect ratio matched to video
-        if (_overlayImage != null && videoImage != null && videoImage.texture != null)
-        {
-            var fitter = _overlayImage.GetComponent<AspectRatioFitter>();
-            if (fitter != null)
-            {
-                var tex = videoImage.texture;
-                if (tex.height > 0)
-                    fitter.aspectRatio = (float)tex.width / tex.height;
-            }
-        }
+        // Overlay is parented to videoImage, no manual sync needed
+    }
+
+    private void UpdateScreenBrushSize()
+    {
+        if (videoImage == null) { ScreenBrushDiameter = 0; return; }
+        Vector3[] corners = new Vector3[4];
+        videoImage.rectTransform.GetWorldCorners(corners);
+        float screenVideoWidth = corners[2].x - corners[0].x;
+        float maskToScreen = screenVideoWidth / MaskWidth;
+        ScreenBrushDiameter = brushRadius * 2f * maskToScreen;
     }
 
     // ── Overlay setup ────────────────────────────────────────────────────────────
@@ -116,60 +142,58 @@ public class MaskPainter : MonoBehaviour
         if (videoImage == null) return;
 
         var go = new GameObject("ExclusionMaskOverlay");
-        go.transform.SetParent(videoImage.transform.parent, false);
-        // Place right after the video image
-        go.transform.SetSiblingIndex(videoImage.transform.GetSiblingIndex() + 1);
+        // Parent to the videoImage itself so it follows all scaling/positioning
+        go.transform.SetParent(videoImage.transform, false);
 
         _overlayImage = go.AddComponent<RawImage>();
         _overlayImage.texture = _overlayTex;
         _overlayImage.raycastTarget = false;
 
-        // Stretch to fill parent (same anchoring as video/mask images)
+        // Stretch to fill videoImage exactly
         var rt = _overlayImage.rectTransform;
         rt.anchorMin = Vector2.zero;
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-
-        // Match video aspect ratio
-        var fitter = go.AddComponent<AspectRatioFitter>();
-        fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-        fitter.aspectRatio = (float)MaskWidth / MaskHeight;
     }
 
     // ── Input handling ───────────────────────────────────────────────────────────
 
     private void HandleInput()
     {
-        if (videoImage == null) return;
+        if (videoImage == null || !paintingEnabled) return;
 
-        // Don't handle input if the Shapes UI consumed this frame's input
-        if (FishSynthInput.InputConsumed) return;
+        // Check if mouse is over the video area
+        RectTransform videoRect = videoImage.rectTransform;
+        Camera cam = null;
+        var canvas = videoImage.GetComponentInParent<Canvas>();
+        if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            cam = canvas.worldCamera;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            videoRect, Input.mousePosition, cam, out Vector2 localPoint);
+        Rect rect = videoRect.rect;
+        float u = (localPoint.x - rect.x) / rect.width;
+        float v = (localPoint.y - rect.y) / rect.height;
+        MouseOverVideo = u >= 0f && u <= 1f && v >= 0f && v <= 1f;
 
-        // Scroll to adjust brush size
-        float scroll = Input.mouseScrollDelta.y;
-        if (scroll != 0f)
-            brushRadius = Mathf.Clamp(brushRadius + (int)(scroll * scrollStep), 5, 200);
+        // Scroll to adjust brush size (only when not consumed by UI)
+        if (!FishSynthInput.InputConsumed)
+        {
+            float scroll = Input.mouseScrollDelta.y;
+            if (scroll != 0f)
+                brushRadius = Mathf.Clamp(brushRadius + (int)(scroll * scrollStep), 5, 200);
+        }
+
+        // Only suppress painting if a UI panel consumed the initial click
+        if (FishSynthInput.InputConsumed && Input.GetMouseButtonDown(0)) return;
+        if (FishSynthInput.InputConsumed && Input.GetMouseButtonDown(1)) return;
 
         bool painting = Input.GetMouseButton(0);
         bool erasing  = Input.GetMouseButton(1);
         if (!painting && !erasing) return;
 
-        // Convert screen pos → local point on video RawImage
-        Vector2 localPoint;
-        RectTransform videoRect = videoImage.rectTransform;
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                videoRect, Input.mousePosition, null, out localPoint))
-            return;
+        if (!MouseOverVideo) return;
 
-        // Convert to UV (0–1)
-        Rect rect = videoRect.rect;
-        float u = (localPoint.x - rect.x) / rect.width;
-        float v = (localPoint.y - rect.y) / rect.height;
-
-        if (u < 0f || u > 1f || v < 0f || v > 1f) return;
-
-        // UV to mask pixel (v=0 bottom, v=1 top matches texture y convention)
         int cx = Mathf.RoundToInt(u * (MaskWidth  - 1));
         int cy = Mathf.RoundToInt(v * (MaskHeight - 1));
 
@@ -178,7 +202,7 @@ public class MaskPainter : MonoBehaviour
         PassMaskToTracker();
 
         _dirty = true;
-        _saveTimer = 1f; // debounce save by 1 second
+        _saveTimer = 1f;
     }
 
     private void PaintCircle(int cx, int cy, int radius, bool exclude)
@@ -220,6 +244,56 @@ public class MaskPainter : MonoBehaviour
     {
         if (tracker != null)
             tracker.exclusionMask = _maskTex;
+    }
+
+    // ── Preset API ──────────────────────────────────────────────────────────────
+
+    /// <summary>Get the current mask texture for saving as a preset.</summary>
+    public Texture2D GetMaskTexture()
+    {
+        return _maskTex;
+    }
+
+    /// <summary>Load a mask from a texture (e.g. from a preset). Texture is consumed.</summary>
+    public void LoadFromTexture(Texture2D loadTex)
+    {
+        if (loadTex == null || !_initialized) return;
+        if (loadTex.width != MaskWidth || loadTex.height != MaskHeight)
+        {
+            Debug.LogWarning($"[MaskPainter] Preset mask size mismatch ({loadTex.width}x{loadTex.height}), ignoring.");
+            Object.Destroy(loadTex);
+            return;
+        }
+
+        Color32[] loaded = loadTex.GetPixels32();
+        byte overlayA = (byte)(overlayAlpha * 255);
+        for (int i = 0; i < _maskPixels.Length; i++)
+        {
+            bool excluded = loaded[i].r < 128;
+            _maskPixels[i]    = excluded ? MaskExclude : MaskAllow;
+            _overlayPixels[i] = excluded
+                ? new Color32(255, 0, 0, overlayA)
+                : new Color32(0, 0, 0, 0);
+        }
+        Object.Destroy(loadTex);
+
+        ApplyTextures();
+        PassMaskToTracker();
+        SaveMask();
+    }
+
+    /// <summary>Clear the mask (all white / no exclusions).</summary>
+    public void ClearMask()
+    {
+        if (!_initialized) return;
+        for (int i = 0; i < _maskPixels.Length; i++)
+        {
+            _maskPixels[i]    = MaskAllow;
+            _overlayPixels[i] = new Color32(0, 0, 0, 0);
+        }
+        ApplyTextures();
+        PassMaskToTracker();
+        SaveMask();
     }
 
     // ── Save / Load ──────────────────────────────────────────────────────────────
@@ -269,7 +343,7 @@ public class MaskPainter : MonoBehaviour
 
             for (int i = 0; i < _maskPixels.Length; i++)
             {
-                bool excluded = loaded[i].r < 128; // black = excluded
+                bool excluded = loaded[i].r < 128;
                 _maskPixels[i]    = excluded ? MaskExclude : MaskAllow;
                 _overlayPixels[i] = excluded
                     ? new Color32(255, 0, 0, overlayA)
@@ -285,63 +359,6 @@ public class MaskPainter : MonoBehaviour
         }
     }
 
-    // ── Brush cursor ─────────────────────────────────────────────────────────────
-
-    private void OnGUI()
-    {
-        if (videoImage == null) return;
-
-        // Rebuild cursor texture if brush size changed
-        int desiredSize = Mathf.Max(brushRadius * 2, 8);
-        if (_cursorTex == null || _cursorTexSize != desiredSize)
-        {
-            if (_cursorTex != null) Destroy(_cursorTex);
-            _cursorTexSize = desiredSize;
-            _cursorTex = CreateRingTexture(_cursorTexSize);
-        }
-
-        // Compute screen-space brush size from mask-pixel brush radius
-        Vector3[] corners = new Vector3[4];
-        videoImage.rectTransform.GetWorldCorners(corners);
-        float screenVideoWidth = corners[2].x - corners[0].x;
-        float maskToScreen = screenVideoWidth / MaskWidth;
-        float screenDiameter = brushRadius * 2f * maskToScreen;
-
-        // Draw the ring at cursor position
-        Vector2 mouse = Event.current.mousePosition;
-        float half = screenDiameter * 0.5f;
-        GUI.DrawTexture(new Rect(mouse.x - half, mouse.y - half,
-            screenDiameter, screenDiameter), _cursorTex);
-    }
-
-    private Texture2D CreateRingTexture(int size)
-    {
-        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        var pixels = new Color32[size * size];
-        float center = size * 0.5f;
-        float outerR = center;
-        float innerR = Mathf.Max(center - 2f, center * 0.9f);
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float dx = x + 0.5f - center;
-                float dy = y + 0.5f - center;
-                float dist = Mathf.Sqrt(dx * dx + dy * dy);
-                bool inRing = dist <= outerR && dist >= innerR;
-                pixels[y * size + x] = inRing
-                    ? new Color32(255, 255, 255, 200)
-                    : new Color32(0, 0, 0, 0);
-            }
-        }
-
-        tex.SetPixels32(pixels);
-        tex.Apply();
-        tex.filterMode = FilterMode.Bilinear;
-        return tex;
-    }
-
     // ── Cleanup ──────────────────────────────────────────────────────────────────
 
     private void OnDestroy()
@@ -349,7 +366,6 @@ public class MaskPainter : MonoBehaviour
         if (_dirty) SaveMask();
         if (_maskTex != null)    Destroy(_maskTex);
         if (_overlayTex != null) Destroy(_overlayTex);
-        if (_cursorTex != null)  Destroy(_cursorTex);
         if (_overlayImage != null) Destroy(_overlayImage.gameObject);
     }
 }

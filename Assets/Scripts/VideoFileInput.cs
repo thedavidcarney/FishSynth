@@ -155,6 +155,28 @@ public class VideoFileInput : MonoBehaviour
             _vp.time = t * _vp.length;
     }
 
+    /// <summary>Load and play a new video file at runtime.</summary>
+    public void LoadFile(string path)
+    {
+        _vp.Stop();
+        absolutePath = path;
+        videoFileName = System.IO.Path.GetFileName(path);
+        _vp.url = path;
+        _vp.Prepare();
+    }
+
+    /// <summary>Stop playback and release the output texture.</summary>
+    public void StopAndRelease()
+    {
+        _vp.Stop();
+        _vp.targetTexture = null;
+        if (_outputTexture != null)
+        {
+            _outputTexture.Release();
+            _outputTexture = null;
+        }
+    }
+
     private void OnDestroy()
     {
         if (_vp != null) _vp.prepareCompleted -= OnPrepareCompleted;

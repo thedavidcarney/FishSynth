@@ -50,6 +50,11 @@ public class FishDebugCanvas : MonoBehaviour
     [Tooltip("Automatically scale the video preview to fit the screen while preserving aspect ratio.")]
     public bool autoFitToScreen = true;
 
+    [Header("Paint Mode")]
+    [Tooltip("How much of the screen height (0-1) to reserve at the bottom for the paint bar.")]
+    [Range(0f, 0.5f)]
+    public float paintModeBottomRatio = 0.08f;
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private Material _additiveMaterial;
@@ -57,6 +62,7 @@ public class FishDebugCanvas : MonoBehaviour
     private RectTransform _videoRect;
     private AspectRatioFitter _videoFitter;
     private AspectRatioFitter _maskFitter;
+    private bool _paintModeActive;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -127,6 +133,7 @@ public class FishDebugCanvas : MonoBehaviour
 
     private void Update()
     {
+        ApplyPaintModeLayout();
         UpdateAspectRatio();
         UpdateMaskBlend();
         UpdateBoundingBox();
@@ -224,6 +231,86 @@ public class FishDebugCanvas : MonoBehaviour
         RectTransform[] rts = { bboxTop, bboxBottom, bboxLeft, bboxRight };
         foreach (var rt in rts)
             if (rt != null) rt.gameObject.SetActive(visible);
+    }
+
+    /// <summary>Call to enter/exit paint mode. Scales video to leave room for paint bar.</summary>
+    public void SetPaintMode(bool active)
+    {
+        _paintModeActive = active;
+        ApplyPaintModeLayout();
+    }
+
+    private void ApplyPaintModeLayout()
+    {
+        if (!autoFitToScreen) return;
+        if (!_paintModeActive)
+        {
+            // Restore fitters and full-screen anchors
+            if (_videoFitter != null) _videoFitter.enabled = true;
+            if (_maskFitter != null) _maskFitter.enabled = true;
+
+            SetRTFullStretch(videoImage);
+            SetRTFullStretch(maskImage);
+            return;
+        }
+
+        // In paint mode: disable fitters and manually size/position
+        // to fit within the top portion of the screen
+        if (_videoFitter != null) _videoFitter.enabled = false;
+        if (_maskFitter != null) _maskFitter.enabled = false;
+
+        Texture tex = videoImage != null ? videoImage.texture : null;
+        if (tex == null || tex.height == 0) return;
+
+        float aspect = (float)tex.width / tex.height;
+        RectTransform parentRT = videoImage.rectTransform.parent as RectTransform;
+        if (parentRT == null) return;
+
+        float parentW = parentRT.rect.width;
+        float parentH = parentRT.rect.height;
+        float reservedH = parentH * paintModeBottomRatio;
+        float availH = parentH - reservedH;
+        float availW = parentW;
+
+        // Fit within available area preserving aspect
+        float fitW, fitH;
+        if (availW / availH > aspect)
+        {
+            fitH = availH;
+            fitW = fitH * aspect;
+        }
+        else
+        {
+            fitW = availW;
+            fitH = fitW / aspect;
+        }
+
+        // Top-align within the available area
+        ApplyPaintRect(videoImage, fitW, fitH, parentH, reservedH);
+        ApplyPaintRect(maskImage, fitW, fitH, parentH, reservedH);
+    }
+
+    private void ApplyPaintRect(RawImage img, float fitW, float fitH, float parentH, float reservedH)
+    {
+        if (img == null) return;
+        var rt = img.rectTransform;
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(fitW, fitH);
+        // Center horizontally, top-align vertically (top of available area)
+        float topY = parentH * 0.5f;
+        float posY = topY - fitH * 0.5f;
+        rt.anchoredPosition = new Vector2(0f, posY);
+    }
+
+    private void SetRTFullStretch(RawImage img)
+    {
+        if (img == null) return;
+        var rt = img.rectTransform;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
     }
 
     private void OnDestroy()

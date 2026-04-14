@@ -3,7 +3,7 @@ using Shapes;
 
 /// <summary>
 /// Bottom status bar: fish detection icon, FPS, scrolling MIDI log,
-/// MUTE button, video source, MIDI port.
+/// MUTE button, video source label (read-only), MIDI port.
 /// </summary>
 public class StatusBarPanel : ImmediateModePanel, IFishPanel
 {
@@ -24,9 +24,7 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
     public float muteButtonInset = 4f;
     public float muteFontSize = 11f;
     public float rightSectionWidth = 220f;
-    public float videoSectionOffset = 140f;
     public float midiSectionOffset = 60f;
-    public float iconFontSize = 12f;
     public float portLabelFontSize = 12f;
     public int portTruncateLength = 10;
 
@@ -63,29 +61,27 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
         // Port text editing input
         if (_editingPort)
         {
-            // Handle typed characters
             foreach (char c in Input.inputString)
             {
-                if (c == '\b') // Backspace
+                if (c == '\b')
                 {
                     if (_editBuffer.Length > 0)
                         _editBuffer = _editBuffer.Substring(0, _editBuffer.Length - 1);
                 }
-                else if (c == '\n' || c == '\r') // Enter - commit
+                else if (c == '\n' || c == '\r')
                 {
                     CommitPortEdit();
                 }
-                else if (c == 27) // Escape - cancel
+                else if (c == 27)
                 {
                     _editingPort = false;
                 }
-                else
+                else if (c >= 32)
                 {
                     _editBuffer += c;
                 }
             }
 
-            // Also check Escape key directly
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 _editingPort = false;
@@ -104,6 +100,7 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
     public override void DrawPanelShapes(Rect rect, ImCanvasContext ctx)
     {
         if (UI == null) return;
+        if (UI.paintModeActive) return;
         UI.DrawPanelBg(rect);
 
         float y = rect.center.y;
@@ -124,7 +121,6 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
         else
             fishColor = UI.statusBad;
 
-        // Fish silhouette: disc body + triangle tail via 3 vertices
         Vector2 fishPos = new Vector2(left + fishIconOffset, y);
         Draw.Color = fishColor;
         Draw.Disc(fishPos, fishIconRadius);
@@ -132,7 +128,6 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
         Vector3 tailB = new Vector3(fishPos.x - fishIconRadius, fishPos.y - fishIconRadius, 0f);
         Vector3 tailC = new Vector3(fishPos.x - fishIconRadius * 2.2f, fishPos.y, 0f);
         Draw.Triangle(tailA, tailB, tailC, fishColor);
-        // Eye
         Draw.Disc(fishPos + new Vector2(fishIconRadius * 0.4f, fishIconRadius * 0.3f), fishIconRadius * 0.24f, Color.black);
 
         left += fishIconOffset + fishIconRadius * 2f + 6f;
@@ -140,8 +135,7 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
         // ── FPS ──────────────────────────────────────────────────
         UI.SetFontSize(fpsFontSize);
         Draw.Color = UI.textColor;
-        string fpsText = $"{_displayFps:F0}fps";
-        Draw.Text(new Vector2(left, y), fpsText, TextAlign.Left);
+        Draw.Text(new Vector2(left, y), $"{_displayFps:F0}fps", TextAlign.Left);
         left += fpsWidth;
 
         // ── Separator ────────────────────────────────────────────
@@ -185,31 +179,8 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
         float sepX = muteRect.xMax + 10f;
         Draw.Line(new Vector2(sepX, rect.yMin + separatorInset), new Vector2(sepX, rect.yMax - separatorInset), separatorThickness, UI.panelBorder);
 
-        // ── Video source indicator ───────────────────────────────
-        float vidX = right - videoSectionOffset;
-        Draw.Color = UI.textDim;
-        UI.SetFontSize(iconFontSize);
-        // Camera icon: small rect
-        Rect camIcon = new Rect(vidX, y - 4f, 8f, 8f);
-        Draw.Rectangle(camIcon, 1f, UI.textDim);
-        // Small lens triangle
-        Draw.Triangle(
-            new Vector3(vidX + 9f, y + 3f, 0f),
-            new Vector3(vidX + 9f, y - 3f, 0f),
-            new Vector3(vidX + 13f, y, 0f),
-            UI.textDim);
-        Draw.Color = UI.textColor;
-        UI.SetFontSize(iconFontSize);
-        string vidLabel = UI.videoInput != null ? "Video" : "No Input";
-        Draw.Text(new Vector2(vidX + 16f, y), vidLabel, TextAlign.Left);
-
-        // ── Separator ────────────────────────────────────────────
-        float sep2X = right - midiSectionOffset - 10f;
-        Draw.Line(new Vector2(sep2X, rect.yMin + separatorInset), new Vector2(sep2X, rect.yMax - separatorInset), separatorThickness, UI.panelBorder);
-
         // ── MIDI port indicator ──────────────────────────────────
         float midiX = right - midiSectionOffset;
-        // Musical note icon
         Draw.Disc(new Vector2(midiX + 3f, y - 2f), 3f, UI.accent);
         Draw.Line(new Vector2(midiX + 5.5f, y - 2f), new Vector2(midiX + 5.5f, y + 6f), 1.5f, UI.accent);
 
@@ -219,7 +190,6 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
 
         if (_editingPort)
         {
-            // Draw text input box with accent border
             Draw.Rectangle(_portRect, 3f, new Color(0.08f, 0.1f, 0.14f, 0.95f));
             Draw.RectangleBorder(_portRect, 1.5f, 3f, UI.accent);
             Draw.Color = UI.textColor;
@@ -247,24 +217,17 @@ public class StatusBarPanel : ImmediateModePanel, IFishPanel
         if (UI == null) return;
         FishSynthInput.InputConsumed = true;
 
-        // If editing port and click outside, commit and exit
+        // Handle port editing dismiss
         if (_editingPort)
         {
             if (!_portRect.Contains(pos))
-            {
                 CommitPortEdit();
-            }
             return;
         }
 
         if (_muteRect.Contains(pos))
         {
             UI.midiMuted = !UI.midiMuted;
-            // If unmuting, send all-notes-off to clear stuck notes
-            if (!UI.midiMuted && UI.midiOutput != null)
-            {
-                // AllNotesOff is private, but mute flag in SendNote handles it
-            }
             return;
         }
 

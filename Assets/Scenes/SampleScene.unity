@@ -153,6 +153,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tracker: {fileID: 1031224874}
   videoImage: {fileID: 1887153121}
+  paintingEnabled: 0
   brushRadius: 30
   scrollStep: 5
   overlayAlpha: 0.4
@@ -278,8 +279,10 @@ RectTransform:
   m_Children:
   - {fileID: 500100002}
   - {fileID: 500200002}
+  - {fileID: 2086817755}
   - {fileID: 500300002}
   - {fileID: 500400002}
+  - {fileID: 1931555915}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -349,6 +352,9 @@ MonoBehaviour:
   tracker: {fileID: 1031224874}
   midiOutput: {fileID: 1031224873}
   videoInput: {fileID: 619221143}
+  videoSourceManager: {fileID: 514165400}
+  maskPainter: {fileID: 242986482}
+  debugCanvas: {fileID: 1482499027}
   panelBackground: {r: 0.05, g: 0.07, b: 0.1, a: 0.82}
   panelBorder: {r: 0.3, g: 0.4, b: 0.5, a: 0.6}
   accent: {r: 0.2, g: 0.8, b: 1, a: 1}
@@ -381,10 +387,15 @@ MonoBehaviour:
   tracker: {fileID: 1031224874}
   midiOutput: {fileID: 1031224873}
   videoInput: {fileID: 619221143}
+  videoSourceManager: {fileID: 514165400}
+  maskPainter: {fileID: 242986482}
+  debugCanvas: {fileID: 1482499027}
   trackingPanel: {fileID: 500100003}
   songPanel: {fileID: 500200003}
   channelPanel: {fileID: 500300003}
   statusBarPanel: {fileID: 500400003}
+  videoPanel: {fileID: 2086817754}
+  paintModeBar: {fileID: 1931555914}
 --- !u!114 &500000007
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -450,14 +461,18 @@ MonoBehaviour:
   currentPresetName: Default
   padding: 14
   headerFontSize: 16
-  labelFontSize: 10
-  knobSize: 52
-  knobLabelFontSize: 9
-  knobValueFontSize: 9
-  stripHeight: 28
-  satValStripHeight: 22
-  stripGap: 8
+  headerGap: 28
+  labelFontSize: 13.98
+  knobSize: 68.1
+  knobLabelFontSize: 12.44
+  knobValueFontSize: 12.61
+  stripHeight: 27.1
+  stripGap: 18.9
   sectionGap: 16
+  labelToKnobGap: 33.5
+  knobRowGap: 44.9
+  trackingKnobSpacing: 46.21
+  cleanupKnobSpacing: 32.77
   maskButtonHeight: 36
 --- !u!1 &500200001
 GameObject:
@@ -573,6 +588,7 @@ MonoBehaviour:
   ccNumFontSize: 18
   noteNameFontSize: 18
   channelFontSize: 10
+  currentMidiPreset: Default
 --- !u!1 &500400001
 GameObject:
   m_ObjectHideFlags: 0
@@ -633,12 +649,59 @@ MonoBehaviour:
   muteButtonWidth: 60
   muteButtonInset: 4
   muteFontSize: 11
-  rightSectionWidth: 220
-  videoSectionOffset: 140
-  midiSectionOffset: 60
-  iconFontSize: 12
+  rightSectionWidth: 400
+  midiSectionOffset: 232.1
   portLabelFontSize: 12
-  portTruncateLength: 10
+  portTruncateLength: 25
+--- !u!1 &514165399
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 514165401}
+  - component: {fileID: 514165400}
+  m_Layer: 0
+  m_Name: VideoSourceManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &514165400
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 514165399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 723943335d2bb48abb80fcfd4f14e9ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tracker: {fileID: 1031224874}
+  videoFileInput: {fileID: 619221143}
+  debugMaskImage: {fileID: 350585748}
+  videoImage: {fileID: 1887153121}
+  downsampleFactor: 1
+--- !u!4 &514165401
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 514165399}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &619221141
 GameObject:
   m_ObjectHideFlags: 0
@@ -1432,6 +1495,7 @@ MonoBehaviour:
   showBboxWhenLost: 1
   bboxLostColor: {r: 1, g: 0.5, b: 0, a: 1}
   autoFitToScreen: 1
+  paintModeBottomRatio: 0.06
 --- !u!114 &1482499028
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1660,6 +1724,120 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1728, y: 972}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1931555913
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1931555915}
+  - component: {fileID: 1931555914}
+  m_Layer: 5
+  m_Name: PaintModeBar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1931555914
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1931555913}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff86f098be22144cfb585e0e622bee60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  padding: 12
+  labelFontSize: 15.5
+  smallFontSize: 13.28
+  exitButtonWidth: 100
+  sliderToExitGap: 40
+  sliderHeight: 15.6
+  cursorRadiusMultiplier: 92
+  currentMaskPreset: Default
+--- !u!224 &1931555915
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1931555913}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 500000002}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: 0, y: 34}
+  m_SizeDelta: {x: -16, y: 56}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &2086817753
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2086817755}
+  - component: {fileID: 2086817754}
+  m_Layer: 5
+  m_Name: VideoPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2086817754
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2086817753}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e45c245b642f44ef6b5641ef1e38e918, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  padding: 14
+  headerFontSize: 16
+  labelFontSize: 10
+  itemFontSize: 11
+  itemHeight: 22
+  sectionGap: 14
+  buttonHeight: 28
+  knobSize: 48
+  knobLabelFontSize: 9
+  knobValueFontSize: 9
+--- !u!224 &2086817755
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2086817753}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 500000002}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -168.30005, y: 35.765076}
+  m_SizeDelta: {x: 320, y: -683.7299}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &2135700635
 GameObject:
   m_ObjectHideFlags: 0
@@ -1747,3 +1925,4 @@ SceneRoots:
   - {fileID: 1482499031}
   - {fileID: 242986483}
   - {fileID: 500000002}
+  - {fileID: 514165401}

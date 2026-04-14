@@ -12,19 +12,28 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
 
     // Preset system
     [HideInInspector] public string currentPresetName = "Default";
+    private string[] _presetList = new string[0];
+    private int _presetIndex = -1;
+    private bool _namingPreset;
+    private string _nameBuffer = "";
+    private Rect _presetLeftRect, _presetRightRect, _presetSaveRect, _presetNewRect, _presetNameRect;
 
     // ── Layout variables (serialized) ─────────────────────────────────────────
     [Header("Layout")]
     [SerializeField] float padding = 12f;
     [SerializeField] float headerFontSize = 16f;
+    [SerializeField] float headerGap = 28f;
     [SerializeField] float labelFontSize = 10f;
     [SerializeField] float knobSize = 52f;
     [SerializeField] float knobLabelFontSize = 9f;
     [SerializeField] float knobValueFontSize = 9f;
     [SerializeField] float stripHeight = 28f;
-    [SerializeField] float satValStripHeight = 22f;
-    [SerializeField] float stripGap = 8f;
+[SerializeField] float stripGap = 8f;
     [SerializeField] float sectionGap = 16f;
+    [SerializeField] float labelToKnobGap = 14f;
+    [SerializeField] float knobRowGap = 24f;
+    [SerializeField] float trackingKnobSpacing = 10f;
+    [SerializeField] float cleanupKnobSpacing = 10f;
     [SerializeField] float maskButtonHeight = 36f;
 
     // ── Hit zones (updated each draw) ──────────────────────────────────────────
@@ -60,16 +69,36 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
     private float _dragStartValue;
     private Vector2 _dragStartPos;
 
+    private void Update()
+    {
+        if (!_namingPreset) return;
+        foreach (char c in Input.inputString)
+        {
+            if (c == '\b')
+            {
+                if (_nameBuffer.Length > 0)
+                    _nameBuffer = _nameBuffer.Substring(0, _nameBuffer.Length - 1);
+            }
+            else if (c == '\n' || c == '\r')
+            {
+                if (_nameBuffer.Length > 0)
+                {
+                    currentPresetName = _nameBuffer;
+                    PresetManager.SaveTrackingPreset(UI.tracker, currentPresetName);
+                    RefreshPresetList();
+                }
+                _namingPreset = false;
+            }
+            else if (c == 27) { _namingPreset = false; }
+            else if (c >= 32) { _nameBuffer += c; }
+        }
+        if (Input.GetKeyDown(KeyCode.Escape)) _namingPreset = false;
+    }
+
     public override void DrawPanelShapes(Rect rect, ImCanvasContext ctx)
     {
         if (UI == null || UI.tracker == null) return;
-
-        // ── Paint mode: special minimal UI ───────────────────────
-        if (UI.paintModeActive)
-        {
-            DrawPaintModeUI(rect);
-            return;
-        }
+        if (UI.paintModeActive) return;
 
         UI.DrawPanelBg(rect);
         _knobCount = 0;
@@ -83,72 +112,110 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
         UI.SetFontSize(headerFontSize);
         Draw.Color = UI.textColor;
         Draw.Text(new Vector2(x, top), "Tracking", TextAlign.TopLeft);
-        top -= 28f;
+        top -= headerGap;
 
-        // ── Preset name ──────────────────────────────────────────
-        UI.SetFontSize(labelFontSize);
-        Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x, top), "PRESET", TextAlign.TopLeft);
-        top -= 14f;
-        Rect presetRect = new Rect(x, top - 22f, w, 22f);
-        Draw.Rectangle(presetRect, 3f, new Color(0.1f, 0.12f, 0.15f, 0.8f));
-        Draw.RectangleBorder(presetRect, 1f, 3f, UI.panelBorder);
-        UI.SetFontSize(12f);
+        // ── Preset row: [◀] Name [▶] [Save] [+] ─────────────────
+        top -= 2f;
+        float rowH = 22f;
+        float arrowW = 20f;
+        float btnW = 36f;
+        float gap = 3f;
+        float nameW = w - arrowW * 2 - btnW * 2 - gap * 4;
+
+        float cx = x;
+        Rect leftArr = new Rect(cx, top - rowH, arrowW, rowH);
+        _presetLeftRect = leftArr;
+        cx += arrowW + gap;
+
+        Rect nameRect = new Rect(cx, top - rowH, nameW, rowH);
+        _presetNameRect = nameRect;
+        cx += nameW + gap;
+
+        Rect rightArr = new Rect(cx, top - rowH, arrowW, rowH);
+        _presetRightRect = rightArr;
+        cx += arrowW + gap;
+
+        Rect saveBtn = new Rect(cx, top - rowH, btnW, rowH);
+        _presetSaveRect = saveBtn;
+        cx += btnW + gap;
+
+        Rect newBtn = new Rect(cx, top - rowH, btnW, rowH);
+        _presetNewRect = newBtn;
+
+        // Arrows
+        DrawPresetButton(leftArr, "<");
+        DrawPresetButton(rightArr, ">");
+        DrawPresetButton(saveBtn, "Save");
+        DrawPresetButton(newBtn, "+");
+
+        // Name display / edit
+        Draw.Rectangle(nameRect, 3f, new Color(0.1f, 0.12f, 0.15f, 0.8f));
+        Draw.RectangleBorder(nameRect, 1f, 3f, UI.panelBorder);
+        UI.SetFontSize(10f);
         Draw.Color = UI.textColor;
-        Draw.Text(presetRect.center, currentPresetName, TextAlign.Center);
-        top -= 32f;
+        if (_namingPreset)
+        {
+            string cursor = (Time.time % 1f < 0.5f) ? "|" : "";
+            Draw.Text(nameRect.center, _nameBuffer + cursor, TextAlign.Center);
+        }
+        else
+        {
+            Draw.Text(nameRect.center, currentPresetName, TextAlign.Center);
+        }
+
+        top -= rowH + 10f;
 
         // ── HSV Color Strips ─────────────────────────────────────
         UI.SetFontSize(labelFontSize);
         Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x, top), "COLOR FILTER", TextAlign.TopLeft);
-        top -= 14f;
+        Draw.Text(new Vector2(x + w / 2f, top), "COLOR FILTER", TextAlign.Top);
+        top -= labelToKnobGap;
 
         top = DrawHueStrip(x, top, w, stripHeight, t.hueMin, t.hueMax, 0);
         top -= stripGap;
-        top = DrawSatStrip(x, top, w, satValStripHeight, t.satMin, t.satMax, 1);
+        top = DrawSatStrip(x, top, w, stripHeight, t.satMin, t.satMax, 1);
         top -= stripGap;
-        top = DrawValStrip(x, top, w, satValStripHeight, t.valMin, t.valMax, 2);
+        top = DrawValStrip(x, top, w, stripHeight, t.valMin, t.valMax, 2);
         top -= sectionGap;
 
         // ── Morphology Knobs ─────────────────────────────────────
         UI.SetFontSize(labelFontSize);
         Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x, top), "CLEANUP", TextAlign.TopLeft);
-        top -= 14f;
+        Draw.Text(new Vector2(x + w / 2f, top), "CLEANUP", TextAlign.Top);
+        top -= labelToKnobGap;
 
-        float knobSpacing = (w - knobSize * 3) / 2f;
         float knobR = knobSize / 2f;
+        float row3W = knobSize * 3 + cleanupKnobSpacing * 2;
+        float row3X = x + (w - row3W) / 2f;
 
-        RegisterKnob(x + knobR, top - knobR, knobR, "Erode 1", t.erode1Radius, 1, 20,
+        RegisterKnob(row3X + knobR, top - knobR, knobR, "Erode 1", t.erode1Radius, 1, 20,
             v => t.erode1Radius = Mathf.RoundToInt(v), () => t.erode1Radius);
-        RegisterKnob(x + knobSize + knobSpacing + knobR, top - knobR, knobR, "Dilate", t.dilateRadius, 1, 40,
+        RegisterKnob(row3X + knobSize + cleanupKnobSpacing + knobR, top - knobR, knobR, "Dilate", t.dilateRadius, 1, 40,
             v => t.dilateRadius = Mathf.RoundToInt(v), () => t.dilateRadius);
-        RegisterKnob(x + (knobSize + knobSpacing) * 2 + knobR, top - knobR, knobR, "Erode 2", t.erode2Radius, 1, 20,
+        RegisterKnob(row3X + (knobSize + cleanupKnobSpacing) * 2 + knobR, top - knobR, knobR, "Erode 2", t.erode2Radius, 1, 20,
             v => t.erode2Radius = Mathf.RoundToInt(v), () => t.erode2Radius);
-        top -= knobSize + 24f;
+        top -= knobSize + knobRowGap;
 
         // ── Tracking Knobs (2x2 centered) ───────────────────────
         UI.SetFontSize(labelFontSize);
         Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x, top), "TRACKING", TextAlign.TopLeft);
-        top -= 14f;
+        Draw.Text(new Vector2(x + w / 2f, top), "TRACKING", TextAlign.Top);
+        top -= labelToKnobGap;
 
-        float knob2Spacing = 10f; // gap between the two knobs in a row
-        float row2W = knobSize * 2 + knob2Spacing;
-        float rowOffsetX = x + (w - row2W) / 2f; // center within panel width
+        float row2W = knobSize * 2 + trackingKnobSpacing;
+        float rowOffsetX = x + (w - row2W) / 2f;
 
         RegisterKnob(rowOffsetX + knobR, top - knobR, knobR, "Sensitivity", t.minBlobPixels, 10, 500,
             v => t.minBlobPixels = Mathf.RoundToInt(v), () => t.minBlobPixels);
-        RegisterKnob(rowOffsetX + knobSize + knob2Spacing + knobR, top - knobR, knobR, "Position Smooth", t.positionSmoothing, 0f, 1f,
+        RegisterKnob(rowOffsetX + knobSize + trackingKnobSpacing + knobR, top - knobR, knobR, "Position Smooth", t.positionSmoothing, 0f, 1f,
             v => t.positionSmoothing = v, () => t.positionSmoothing);
-        top -= knobSize + 24f;
+        top -= knobSize + knobRowGap;
 
         RegisterKnob(rowOffsetX + knobR, top - knobR, knobR, "Velocity Smooth", t.velocitySmoothing, 0f, 1f,
             v => t.velocitySmoothing = v, () => t.velocitySmoothing);
-        RegisterKnob(rowOffsetX + knobSize + knob2Spacing + knobR, top - knobR, knobR, "Dead Reckon", t.deadReckonDuration, 0f, 2f,
+        RegisterKnob(rowOffsetX + knobSize + trackingKnobSpacing + knobR, top - knobR, knobR, "Dead Reckon", t.deadReckonDuration, 0f, 2f,
             v => t.deadReckonDuration = v, () => t.deadReckonDuration);
-        top -= knobSize + 24f;
+        top -= knobSize + knobRowGap;
 
         // ── Mask Paint Toggle ────────────────────────────────────
         Rect maskBtnRect = new Rect(x, top - maskButtonHeight, w, maskButtonHeight);
@@ -168,38 +235,28 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
         Draw.Text(new Vector2(maskBtnRect.center.x + 8f, by), "Paint Exclusion Mask", TextAlign.Left);
     }
 
-    void DrawPaintModeUI(Rect rect)
+    void DrawPresetButton(Rect rect, string label)
     {
-        UI.DrawPanelBg(rect);
-
-        float x = rect.xMin + padding;
-        float top = rect.yMax - padding;
-        float w = rect.width - padding * 2;
-
-        // ── Header ───────────────────────────────────────────────
-        UI.SetFontSize(headerFontSize);
-        Draw.Color = UI.statusBad;
-        Draw.Text(new Vector2(x, top), "Paint Mode", TextAlign.TopLeft);
-        top -= 32f;
-
-        // ── Help text ────────────────────────────────────────────
-        UI.SetFontSize(12f);
+        Draw.Rectangle(rect, 3f, new Color(0.12f, 0.14f, 0.18f, 0.8f));
+        Draw.RectangleBorder(rect, 1f, 3f, UI.panelBorder);
+        UI.SetFontSize(10f);
         Draw.Color = UI.textColor;
-        Draw.Text(new Vector2(x, top), "Left click: Paint exclusion", TextAlign.TopLeft);
-        top -= 20f;
-        Draw.Text(new Vector2(x, top), "Right click: Erase", TextAlign.TopLeft);
-        top -= 20f;
-        Draw.Text(new Vector2(x, top), "Scroll: Brush size", TextAlign.TopLeft);
-        top -= 32f;
+        Draw.Text(rect.center, label, TextAlign.Center);
+    }
 
-        // ── Exit button ──────────────────────────────────────────
-        Rect exitRect = new Rect(x, top - 44f, w, 44f);
-        _maskBtnRect = exitRect;
-        Draw.Rectangle(exitRect, 4f, new Color(0.8f, 0.2f, 0.2f, 0.3f));
-        Draw.RectangleBorder(exitRect, 1.5f, 4f, UI.statusBad);
-        UI.SetFontSize(14f);
-        Draw.Color = UI.statusBad;
-        Draw.Text(exitRect.center, "Exit Paint Mode", TextAlign.Center);
+    void RefreshPresetList()
+    {
+        _presetList = PresetManager.ListTrackingPresets();
+        _presetIndex = System.Array.IndexOf(_presetList, currentPresetName);
+    }
+
+    void CyclePreset(int dir)
+    {
+        if (_presetList.Length == 0) { RefreshPresetList(); }
+        if (_presetList.Length == 0) return;
+        _presetIndex = ((_presetIndex + dir) % _presetList.Length + _presetList.Length) % _presetList.Length;
+        currentPresetName = _presetList[_presetIndex];
+        PresetManager.LoadTrackingPreset(UI.tracker, currentPresetName);
     }
 
     // ── Knob registration + drawing ────────────────────────────────────────────
@@ -328,7 +385,7 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
         // Label
         UI.SetFontSize(knobLabelFontSize);
         Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x - 2f, top - h / 2f), "H", TextAlign.Right);
+        Draw.Text(new Vector2(x + 4f, top - h / 2f), "H", TextAlign.Left);
 
         return top - h;
     }
@@ -368,7 +425,7 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
 
         UI.SetFontSize(knobLabelFontSize);
         Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x - 2f, top - h / 2f), "S", TextAlign.Right);
+        Draw.Text(new Vector2(x + 4f, top - h / 2f), "S", TextAlign.Left);
 
         return top - h;
     }
@@ -408,7 +465,7 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
 
         UI.SetFontSize(knobLabelFontSize);
         Draw.Color = UI.textDim;
-        Draw.Text(new Vector2(x - 2f, top - h / 2f), "V", TextAlign.Right);
+        Draw.Text(new Vector2(x + 4f, top - h / 2f), "V", TextAlign.Left);
 
         return top - h;
     }
@@ -420,29 +477,66 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
         if (UI == null || UI.tracker == null) return;
         FishSynthInput.InputConsumed = true;
 
+        // Preset buttons
+        if (_namingPreset)
+        {
+            // Click outside name field commits
+            if (!_presetNameRect.Contains(pos) && _nameBuffer.Length > 0)
+            {
+                currentPresetName = _nameBuffer;
+                PresetManager.SaveTrackingPreset(UI.tracker, currentPresetName);
+                RefreshPresetList();
+                _namingPreset = false;
+            }
+            else if (!_presetNameRect.Contains(pos))
+            {
+                _namingPreset = false;
+            }
+            return;
+        }
+
+        if (_presetLeftRect.Contains(pos)) { CyclePreset(-1); return; }
+        if (_presetRightRect.Contains(pos)) { CyclePreset(1); return; }
+        if (_presetSaveRect.Contains(pos))
+        {
+            PresetManager.SaveTrackingPreset(UI.tracker, currentPresetName);
+            RefreshPresetList();
+            return;
+        }
+        if (_presetNewRect.Contains(pos))
+        {
+            _namingPreset = true;
+            _nameBuffer = "";
+            return;
+        }
+
         // Check mask paint toggle / exit button
         if (_maskBtnRect.Contains(pos))
         {
-            var painter = UI.tracker.GetComponent<MaskPainter>();
+            var painter = UI.maskPainter;
             if (painter != null)
             {
                 if (UI.paintModeActive)
                 {
                     // Exit paint mode
-                    painter.enabled = false;
+                    painter.paintingEnabled = false;
                     UI.paintModeActive = false;
+                    if (UI.debugCanvas != null)
+                        UI.debugCanvas.SetPaintMode(false);
                 }
                 else
                 {
                     // Enter paint mode
-                    painter.enabled = true;
+                    painter.paintingEnabled = true;
                     UI.paintModeActive = true;
+                    if (UI.debugCanvas != null)
+                        UI.debugCanvas.SetPaintMode(true);
                 }
             }
             return;
         }
 
-        // In paint mode, don't process other clicks on this panel
+        // In paint mode, don't process other clicks
         if (UI.paintModeActive) return;
 
         // Check knob hits
@@ -559,4 +653,5 @@ public class TrackingPanel : ImmediateModePanel, IFishPanel
             }
         }
     }
+
 }

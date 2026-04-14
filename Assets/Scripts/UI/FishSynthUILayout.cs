@@ -30,21 +30,29 @@ public class FishSynthUILayout : MonoBehaviour
     public YellowFishTracker tracker;
     public FishMidiOutput midiOutput;
     public VideoFileInput videoInput;
+    public VideoSourceManager videoSourceManager;
+    public MaskPainter maskPainter;
+    public FishDebugCanvas debugCanvas;
 
     [Header("Panels (assign from scene)")]
     public TrackingPanel trackingPanel;
     public SongSettingsPanel songPanel;
     public ChannelStripPanel channelPanel;
     public StatusBarPanel statusBarPanel;
+    public VideoPanel videoPanel;
+    public PaintModeBar paintModeBar;
 
     void Awake()
     {
         // Wire references into the UI root
         if (fishSynthUI != null)
         {
-            fishSynthUI.tracker = tracker;
-            fishSynthUI.midiOutput = midiOutput;
-            fishSynthUI.videoInput = videoInput;
+            if (tracker != null) fishSynthUI.tracker = tracker;
+            if (midiOutput != null) fishSynthUI.midiOutput = midiOutput;
+            if (videoInput != null) fishSynthUI.videoInput = videoInput;
+            if (videoSourceManager != null) fishSynthUI.videoSourceManager = videoSourceManager;
+            if (maskPainter != null) fishSynthUI.maskPainter = maskPainter;
+            if (debugCanvas != null) fishSynthUI.debugCanvas = debugCanvas;
         }
 
         // Wire MIDI output references

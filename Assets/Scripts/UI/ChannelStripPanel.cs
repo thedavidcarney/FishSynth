@@ -51,7 +51,15 @@ public class ChannelStripPanel : ImmediateModePanel, IFishPanel, IFishPanelDropd
     private int _channelDropdownStrip;
     private bool _orderDropdownOpen;
     private int _orderDropdownStrip;
-    private Rect _activeDropdownRect; // cached rect of whichever dropdown is open
+    private Rect _activeDropdownRect;
+
+    // MIDI preset state
+    [HideInInspector] public string currentMidiPreset = "Default";
+    private string[] _midiPresetList = new string[0];
+    private int _midiPresetIndex = -1;
+    private bool _namingMidiPreset;
+    private string _midiNameBuffer = "";
+    private Rect _midiPresetLeftRect, _midiPresetRightRect, _midiPresetSaveRect, _midiPresetNewRect, _midiPresetNameRect;
 
     // Drag state
     private int _dragStrip = -1;
@@ -60,11 +68,105 @@ public class ChannelStripPanel : ImmediateModePanel, IFishPanel, IFishPanelDropd
     private float _dragStartY;
     private int _dragStartVal;
 
+    private void Update()
+    {
+        if (!_namingMidiPreset) return;
+        foreach (char c in Input.inputString)
+        {
+            if (c == '\b')
+            {
+                if (_midiNameBuffer.Length > 0)
+                    _midiNameBuffer = _midiNameBuffer.Substring(0, _midiNameBuffer.Length - 1);
+            }
+            else if (c == '\n' || c == '\r')
+            {
+                if (_midiNameBuffer.Length > 0)
+                {
+                    currentMidiPreset = _midiNameBuffer;
+                    PresetManager.SaveMidiPreset(UI.midiOutput, currentMidiPreset);
+                    RefreshMidiPresetList();
+                }
+                _namingMidiPreset = false;
+            }
+            else if (c == 27) { _namingMidiPreset = false; }
+            else if (c >= 32) { _midiNameBuffer += c; }
+        }
+        if (Input.GetKeyDown(KeyCode.Escape)) _namingMidiPreset = false;
+    }
+
+    void RefreshMidiPresetList()
+    {
+        _midiPresetList = PresetManager.ListMidiPresets();
+        _midiPresetIndex = System.Array.IndexOf(_midiPresetList, currentMidiPreset);
+    }
+
+    void CycleMidiPreset(int dir)
+    {
+        if (_midiPresetList.Length == 0) RefreshMidiPresetList();
+        if (_midiPresetList.Length == 0) return;
+        _midiPresetIndex = ((_midiPresetIndex + dir) % _midiPresetList.Length + _midiPresetList.Length) % _midiPresetList.Length;
+        currentMidiPreset = _midiPresetList[_midiPresetIndex];
+        PresetManager.LoadMidiPreset(UI.midiOutput, currentMidiPreset);
+    }
+
+    void DrawMidiPresetButton(Rect rect, string label)
+    {
+        Draw.Rectangle(rect, 3f, new Color(0.12f, 0.14f, 0.18f, 0.8f));
+        Draw.RectangleBorder(rect, 1f, 3f, UI.panelBorder);
+        UI.SetFontSize(10f);
+        Draw.Color = UI.textColor;
+        Draw.Text(rect.center, label, TextAlign.Center);
+    }
+
     public override void DrawPanelShapes(Rect rect, ImCanvasContext ctx)
     {
         if (UI == null || UI.midiOutput == null) return;
+        if (UI.paintModeActive) return;
 
         UI.DrawPanelBg(rect);
+
+        // ── MIDI Preset row ─────────────────────────────────────
+        float px = rect.xMin + stripPadding;
+        float ptop = rect.yMax - 6f;
+        float pw = rect.width - stripPadding * 2;
+        float rowH = 20f;
+        float arrowW = 20f;
+        float btnW = 36f;
+        float gp = 3f;
+        float nameW = pw - arrowW * 2 - btnW * 2 - gp * 4;
+
+        float pcx = px;
+        _midiPresetLeftRect = new Rect(pcx, ptop - rowH, arrowW, rowH);
+        pcx += arrowW + gp;
+        _midiPresetNameRect = new Rect(pcx, ptop - rowH, nameW, rowH);
+        pcx += nameW + gp;
+        _midiPresetRightRect = new Rect(pcx, ptop - rowH, arrowW, rowH);
+        pcx += arrowW + gp;
+        _midiPresetSaveRect = new Rect(pcx, ptop - rowH, btnW, rowH);
+        pcx += btnW + gp;
+        _midiPresetNewRect = new Rect(pcx, ptop - rowH, btnW, rowH);
+
+        DrawMidiPresetButton(_midiPresetLeftRect, "<");
+        DrawMidiPresetButton(_midiPresetRightRect, ">");
+        DrawMidiPresetButton(_midiPresetSaveRect, "Save");
+        DrawMidiPresetButton(_midiPresetNewRect, "+");
+
+        Draw.Rectangle(_midiPresetNameRect, 3f, new Color(0.1f, 0.12f, 0.15f, 0.8f));
+        Draw.RectangleBorder(_midiPresetNameRect, 1f, 3f, UI.panelBorder);
+        UI.SetFontSize(10f);
+        Draw.Color = UI.textColor;
+        if (_namingMidiPreset)
+        {
+            string cursor = (Time.time % 1f < 0.5f) ? "|" : "";
+            Draw.Text(_midiPresetNameRect.center, _midiNameBuffer + cursor, TextAlign.Center);
+        }
+        else
+        {
+            Draw.Text(_midiPresetNameRect.center, currentMidiPreset, TextAlign.Center);
+        }
+
+        // Adjust rect for remaining strip content
+        rect = new Rect(rect.xMin, rect.yMin, rect.width, rect.height - rowH - 10f);
 
         var midi = UI.midiOutput;
         var tracker = UI.tracker;
@@ -357,6 +459,39 @@ public class ChannelStripPanel : ImmediateModePanel, IFishPanel, IFishPanelDropd
     {
         if (UI == null || UI.midiOutput == null) return;
         FishSynthInput.InputConsumed = true;
+
+        // MIDI preset buttons
+        if (_namingMidiPreset)
+        {
+            if (!_midiPresetNameRect.Contains(pos) && _midiNameBuffer.Length > 0)
+            {
+                currentMidiPreset = _midiNameBuffer;
+                PresetManager.SaveMidiPreset(UI.midiOutput, currentMidiPreset);
+                RefreshMidiPresetList();
+                _namingMidiPreset = false;
+            }
+            else if (!_midiPresetNameRect.Contains(pos))
+            {
+                _namingMidiPreset = false;
+            }
+            return;
+        }
+
+        if (_midiPresetLeftRect.Contains(pos)) { CycleMidiPreset(-1); return; }
+        if (_midiPresetRightRect.Contains(pos)) { CycleMidiPreset(1); return; }
+        if (_midiPresetSaveRect.Contains(pos))
+        {
+            PresetManager.SaveMidiPreset(UI.midiOutput, currentMidiPreset);
+            RefreshMidiPresetList();
+            return;
+        }
+        if (_midiPresetNewRect.Contains(pos))
+        {
+            _namingMidiPreset = true;
+            _midiNameBuffer = "";
+            return;
+        }
+
         var mappings = GetMappings();
 
         // Handle channel dropdown click

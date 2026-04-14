@@ -10,7 +10,7 @@
     "erode2Radius": 6,
     "minBlobPixels": 89,
     "positionSmoothing": 0.5,
-    "velocitySmoothing": 0.20961670577526093,
+    "velocitySmoothing": 0.20000220835208894,
     "deadReckonDuration": 0.4807686507701874,
     "maxVelocity": 5.0
 }

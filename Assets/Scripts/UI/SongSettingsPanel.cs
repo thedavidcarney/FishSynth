@@ -41,6 +41,7 @@ public class SongSettingsPanel : ImmediateModePanel, IFishPanel, IFishPanelDropd
     public override void DrawPanelShapes(Rect rect, ImCanvasContext ctx)
     {
         if (UI == null || UI.midiOutput == null) return;
+        if (UI.paintModeActive) return;
         _lastRect = rect;
 
         UI.DrawPanelBg(rect);

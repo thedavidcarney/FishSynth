@@ -45,13 +45,10 @@ public class FishSynthInput : MonoBehaviour
             // If paint mode is active, exit paint mode first
             if (ui.paintModeActive)
             {
-                var painter = layout.trackingPanel != null
-                    ? layout.trackingPanel.GetComponent<MaskPainter>()
-                    : null;
-                if (painter == null && ui.tracker != null)
-                    painter = ui.tracker.GetComponent<MaskPainter>();
-                if (painter != null)
-                    painter.enabled = false;
+                if (ui.maskPainter != null)
+                    ui.maskPainter.paintingEnabled = false;
+                if (ui.debugCanvas != null)
+                    ui.debugCanvas.SetPaintMode(false);
                 ui.paintModeActive = false;
             }
             else
@@ -118,9 +115,11 @@ public class FishSynthInput : MonoBehaviour
     {
         // Check panels in front-to-back priority order
         // (status bar and channel strip are more likely click targets)
+        if (HitsPanel(layout.paintModeBar, canvasLocal)) return layout.paintModeBar as IFishPanel;
         if (HitsPanel(layout.statusBarPanel, canvasLocal)) return layout.statusBarPanel as IFishPanel;
         if (HitsPanel(layout.channelPanel, canvasLocal)) return layout.channelPanel as IFishPanel;
         if (HitsPanel(layout.songPanel, canvasLocal)) return layout.songPanel as IFishPanel;
+        if (HitsPanel(layout.videoPanel, canvasLocal)) return layout.videoPanel as IFishPanel;
         if (HitsPanel(layout.trackingPanel, canvasLocal)) return layout.trackingPanel as IFishPanel;
         return null;
     }

@@ -498,6 +498,100 @@ public static class MidiScales
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MIDI preset config
+// ─────────────────────────────────────────────────────────────────────────────
+
+[System.Serializable]
+public class MidiPresetConfig
+{
+    public int rootNote;
+    public int scaleType;
+    public bool customC, customCs, customD, customDs, customE, customF;
+    public bool customFs, customG, customGs, customA, customAs, customB;
+    public MidiChannelSnapshot[] mappings;
+
+    [System.Serializable]
+    public class MidiChannelSnapshot
+    {
+        public string label;
+        public bool enabled;
+        public int mode;
+        public int midiChannel;
+        public int ccNumber;
+        public float inputMin, inputMax;
+        public int outputMin, outputMax;
+        public bool holdOnLostDetection;
+        public int rootOctave, octaveRange;
+        public int velocitySource, fixedVelocity;
+        public float velocityInputMin, velocityInputMax;
+        public int velocityTrackerField;
+        public bool legato;
+        public int noteOrder;
+
+        public static MidiChannelSnapshot From(MidiChannelMapping m)
+        {
+            return new MidiChannelSnapshot
+            {
+                label = m.label, enabled = m.enabled,
+                mode = (int)m.mode, midiChannel = m.midiChannel,
+                ccNumber = m.ccNumber, inputMin = m.inputMin, inputMax = m.inputMax,
+                outputMin = m.outputMin, outputMax = m.outputMax,
+                holdOnLostDetection = m.holdOnLostDetection,
+                rootOctave = m.rootOctave, octaveRange = m.octaveRange,
+                velocitySource = (int)m.velocitySource, fixedVelocity = m.fixedVelocity,
+                velocityInputMin = m.velocityInputMin, velocityInputMax = m.velocityInputMax,
+                velocityTrackerField = (int)m.velocityTrackerField,
+                legato = m.legato, noteOrder = (int)m.noteOrder
+            };
+        }
+
+        public void ApplyTo(MidiChannelMapping m)
+        {
+            m.enabled = enabled;
+            m.mode = (MidiMode)mode; m.midiChannel = midiChannel;
+            m.ccNumber = ccNumber; m.inputMin = inputMin; m.inputMax = inputMax;
+            m.outputMin = outputMin; m.outputMax = outputMax;
+            m.holdOnLostDetection = holdOnLostDetection;
+            m.rootOctave = rootOctave; m.octaveRange = octaveRange;
+            m.velocitySource = (VelocitySource)velocitySource; m.fixedVelocity = fixedVelocity;
+            m.velocityInputMin = velocityInputMin; m.velocityInputMax = velocityInputMax;
+            m.velocityTrackerField = (TrackerField)velocityTrackerField;
+            m.legato = legato; m.noteOrder = (NoteOrder)noteOrder;
+        }
+    }
+
+    public static MidiPresetConfig From(FishMidiOutput o)
+    {
+        var cfg = new MidiPresetConfig
+        {
+            rootNote = (int)o.rootNote, scaleType = (int)o.scaleType,
+            customC = o.customC, customCs = o.customCs, customD = o.customD,
+            customDs = o.customDs, customE = o.customE, customF = o.customF,
+            customFs = o.customFs, customG = o.customG, customGs = o.customGs,
+            customA = o.customA, customAs = o.customAs, customB = o.customB,
+            mappings = new MidiChannelSnapshot[6]
+        };
+        var maps = new[] { o.posX, o.posY, o.velocityMag, o.velX, o.velY, o.size };
+        for (int i = 0; i < 6; i++)
+            cfg.mappings[i] = MidiChannelSnapshot.From(maps[i]);
+        return cfg;
+    }
+
+    public void ApplyTo(FishMidiOutput o)
+    {
+        o.rootNote = (RootNote)rootNote; o.scaleType = (ScaleType)scaleType;
+        o.customC = customC; o.customCs = customCs; o.customD = customD;
+        o.customDs = customDs; o.customE = customE; o.customF = customF;
+        o.customFs = customFs; o.customG = customG; o.customGs = customGs;
+        o.customA = customA; o.customAs = customAs; o.customB = customB;
+        var maps = new[] { o.posX, o.posY, o.velocityMag, o.velX, o.velY, o.size };
+        if (mappings != null)
+            for (int i = 0; i < Mathf.Min(mappings.Length, 6); i++)
+                mappings[i].ApplyTo(maps[i]);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Mapping data class
 // ─────────────────────────────────────────────────────────────────────────────
 
