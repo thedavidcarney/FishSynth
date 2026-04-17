@@ -113,9 +113,15 @@ public class FishSynthInput : MonoBehaviour
 
     IFishPanel FindPanelAt(Vector2 canvasLocal)
     {
+        // In paint mode, only the paint bar is interactive — other panels are hidden
+        // and clicks on them should fall through to MaskPainter on the video.
+        if (ui.paintModeActive)
+        {
+            if (HitsPanel(layout.paintModeBar, canvasLocal)) return layout.paintModeBar as IFishPanel;
+            return null;
+        }
+
         // Check panels in front-to-back priority order
-        // (status bar and channel strip are more likely click targets)
-        if (HitsPanel(layout.paintModeBar, canvasLocal)) return layout.paintModeBar as IFishPanel;
         if (HitsPanel(layout.statusBarPanel, canvasLocal)) return layout.statusBarPanel as IFishPanel;
         if (HitsPanel(layout.channelPanel, canvasLocal)) return layout.channelPanel as IFishPanel;
         if (HitsPanel(layout.songPanel, canvasLocal)) return layout.songPanel as IFishPanel;

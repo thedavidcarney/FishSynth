@@ -59,6 +59,12 @@ public class MaskPainter : MonoBehaviour
 
     private bool _initialized;
 
+    // True if the current left/right drag started while a UI panel consumed the click.
+    // Suppresses painting for the whole drag so entering paint mode via the button
+    // doesn't also paint a stroke where you clicked.
+    private bool _leftDragConsumed;
+    private bool _rightDragConsumed;
+
     private static string MaskPath =>
         Path.Combine(Application.streamingAssetsPath, "ExclusionMask.png");
 
@@ -184,12 +190,19 @@ public class MaskPainter : MonoBehaviour
                 brushRadius = Mathf.Clamp(brushRadius + (int)(scroll * scrollStep), 5, 200);
         }
 
-        // Only suppress painting if a UI panel consumed the initial click
-        if (FishSynthInput.InputConsumed && Input.GetMouseButtonDown(0)) return;
-        if (FishSynthInput.InputConsumed && Input.GetMouseButtonDown(1)) return;
+        // Track whether each button's press was consumed by the UI.
+        // This prevents painting mid-drag if the click that started the drag hit a UI panel.
+        if (Input.GetMouseButtonDown(0))
+            _leftDragConsumed = FishSynthInput.InputConsumed;
+        if (Input.GetMouseButtonUp(0))
+            _leftDragConsumed = false;
+        if (Input.GetMouseButtonDown(1))
+            _rightDragConsumed = FishSynthInput.InputConsumed;
+        if (Input.GetMouseButtonUp(1))
+            _rightDragConsumed = false;
 
-        bool painting = Input.GetMouseButton(0);
-        bool erasing  = Input.GetMouseButton(1);
+        bool painting = Input.GetMouseButton(0) && !_leftDragConsumed;
+        bool erasing  = Input.GetMouseButton(1) && !_rightDragConsumed;
         if (!painting && !erasing) return;
 
         if (!MouseOverVideo) return;
